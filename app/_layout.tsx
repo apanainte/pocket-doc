@@ -12,6 +12,7 @@ import {
 import { SplashScreen } from 'expo-router';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { databaseService } from '@/services/database';
+import { ThemeProvider } from '@/contexts/ThemeContext';
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -51,12 +52,14 @@ export default function RootLayout() {
   }
 
   return (
-    <ErrorBoundary>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="auto" />
-    </ErrorBoundary>
+    <ThemeProvider>
+      <ErrorBoundary>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="+not-found" />
+        </Stack>
+        <StatusBar style="auto" />
+      </ErrorBoundary>
+    </ThemeProvider>
   );
 }

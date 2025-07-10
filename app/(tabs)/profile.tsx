@@ -1,16 +1,23 @@
 import React from 'react';
 import {
   View,
-  Text,
-  StyleSheet,
   SafeAreaView,
   TouchableOpacity,
   Alert,
+  ScrollView,
+  Switch,
 } from 'react-native';
-import { LogOut, Shield, User } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { LogOut, Shield, User, Moon, Sun, Smartphone, Settings } from 'lucide-react-native';
 import * as SecureStore from 'expo-secure-store';
+import { RevolutCard } from '@/components/ui/RevolutCard';
+import { RevolutText } from '@/components/ui/RevolutText';
+import { RevolutButton } from '@/components/ui/RevolutButton';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function ProfileScreen() {
+  const { theme, themeMode, setThemeMode, isDark, spacing, borderRadius, iconSizes } = useTheme();
+
   const handleLogout = async () => {
     Alert.alert(
       'Logout',
@@ -37,144 +44,204 @@ export default function ProfileScreen() {
     );
   };
 
+  const getThemeDisplayText = () => {
+    switch (themeMode) {
+      case 'light': return 'Light';
+      case 'dark': return 'Dark';
+      case 'system': return 'System';
+      default: return 'System';
+    }
+  };
+
+  const cycleTheme = () => {
+    const modes: Array<'light' | 'dark' | 'system'> = ['system', 'light', 'dark'];
+    const currentIndex = modes.indexOf(themeMode);
+    const nextIndex = (currentIndex + 1) % modes.length;
+    setThemeMode(modes[nextIndex]);
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Profile</Text>
-      </View>
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <LinearGradient
+        colors={theme.colors.backgroundGradient as [string, string]}
+        style={{ flex: 1 }}
+      >
+        <SafeAreaView style={{ flex: 1 }}>
+          {/* Header with gradient background */}
+          <LinearGradient
+            colors={theme.colors.primaryGradient as [string, string]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={{
+              paddingHorizontal: spacing.lg,
+              paddingTop: spacing.lg,
+              paddingBottom: spacing.xl,
+              borderBottomLeftRadius: borderRadius.xl,
+              borderBottomRightRadius: borderRadius.xl,
+            }}
+          >
+            <RevolutText variant="h1" color="#ffffff">
+              Profile
+            </RevolutText>
+          </LinearGradient>
 
-      <View style={styles.content}>
-        <View style={styles.userSection}>
-          <View style={styles.userIcon}>
-            <User size={40} color="#007AFF" />
-          </View>
-          <Text style={styles.userName}>Pocket Doc User</Text>
-          <Text style={styles.userEmail}>Authenticated Locally</Text>
-        </View>
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{
+              paddingHorizontal: spacing.lg,
+              paddingTop: spacing.xl,
+              paddingBottom: spacing.xl,
+            }}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* User Section */}
+            <RevolutCard 
+              gradient={true}
+              shadow="medium"
+              style={{ marginBottom: spacing.lg }}
+            >
+              <View style={{
+                alignItems: 'center',
+                paddingVertical: spacing.md,
+              }}>
+                <View style={{
+                  width: 80,
+                  height: 80,
+                  borderRadius: 40,
+                  backgroundColor: theme.colors.primaryLight + '30',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  marginBottom: spacing.md,
+                }}>
+                  <User size={iconSizes.xxl} color={theme.colors.primary} />
+                </View>
+                <RevolutText variant="h4" style={{ marginBottom: spacing.xs }}>
+                  Pocket Doc User
+                </RevolutText>
+                <RevolutText variant="body2" color={theme.colors.textSecondary}>
+                  Authenticated Locally
+                </RevolutText>
+              </View>
+            </RevolutCard>
 
-        <View style={styles.settingsSection}>
-          <View style={styles.settingItem}>
-            <Shield size={24} color="#34C759" />
-            <View style={styles.settingContent}>
-              <Text style={styles.settingTitle}>Security</Text>
-              <Text style={styles.settingDescription}>
-                Documents are encrypted and stored locally
-              </Text>
-            </View>
-          </View>
-        </View>
+            {/* Settings Section */}
+            <RevolutCard shadow="medium" style={{ marginBottom: spacing.lg }}>
+              <RevolutText variant="h5" style={{ marginBottom: spacing.lg }}>
+                Settings
+              </RevolutText>
+              
+              {/* Theme Setting */}
+              <TouchableOpacity
+                onPress={cycleTheme}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingVertical: spacing.md,
+                  borderBottomWidth: 1,
+                  borderBottomColor: theme.colors.border,
+                }}
+              >
+                <View style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: theme.colors.secondary + '20',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  marginRight: spacing.md,
+                }}>
+                  {isDark ? (
+                    <Moon size={iconSizes.lg} color={theme.colors.secondary} />
+                  ) : (
+                    <Sun size={iconSizes.lg} color={theme.colors.secondary} />
+                  )}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <RevolutText variant="subtitle1">
+                    Theme
+                  </RevolutText>
+                  <RevolutText variant="caption" color={theme.colors.textSecondary}>
+                    {getThemeDisplayText()} mode
+                  </RevolutText>
+                </View>
+                <RevolutText variant="body2" color={theme.colors.primary}>
+                  Tap to change
+                </RevolutText>
+              </TouchableOpacity>
 
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <LogOut size={24} color="#FF3B30" />
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
+              {/* Security Setting */}
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingVertical: spacing.md,
+              }}>
+                <View style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: theme.colors.success + '20',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  marginRight: spacing.md,
+                }}>
+                  <Shield size={iconSizes.lg} color={theme.colors.success} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <RevolutText variant="subtitle1">
+                    Security
+                  </RevolutText>
+                  <RevolutText variant="caption" color={theme.colors.textSecondary}>
+                    Documents are encrypted and stored locally
+                  </RevolutText>
+                </View>
+              </View>
+            </RevolutCard>
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            Your documents are stored securely on this device only.
-          </Text>
-        </View>
-      </View>
-    </SafeAreaView>
+            {/* Device Section */}
+            <RevolutCard shadow="medium" style={{ marginBottom: spacing.xl }}>
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingVertical: spacing.sm,
+              }}>
+                <View style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: theme.colors.info + '20',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  marginRight: spacing.md,
+                }}>
+                  <Smartphone size={iconSizes.lg} color={theme.colors.info} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <RevolutText variant="subtitle1">
+                    Local Storage
+                  </RevolutText>
+                  <RevolutText variant="caption" color={theme.colors.textSecondary}>
+                    Your documents are stored securely on this device only
+                  </RevolutText>
+                </View>
+              </View>
+            </RevolutCard>
+
+            {/* Logout Button */}
+            <RevolutButton
+              title="Logout"
+              onPress={handleLogout}
+              variant="outline"
+              fullWidth
+              style={{
+                borderColor: theme.colors.error,
+                backgroundColor: 'transparent',
+              }}
+              textStyle={{ color: theme.colors.error }}
+            />
+          </ScrollView>
+        </SafeAreaView>
+      </LinearGradient>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F2F2F7',
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#ffffff',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#1D1D1F',
-  },
-  content: {
-    flex: 1,
-    padding: 16,
-  },
-  userSection: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  userIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#F2F2F7',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  userName: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#1D1D1F',
-    marginBottom: 4,
-  },
-  userEmail: {
-    fontSize: 16,
-    color: '#86868B',
-  },
-  settingsSection: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
-  },
-  settingItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  settingContent: {
-    marginLeft: 16,
-    flex: 1,
-  },
-  settingTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1D1D1F',
-    marginBottom: 4,
-  },
-  settingDescription: {
-    fontSize: 14,
-    color: '#86868B',
-    lineHeight: 20,
-  },
-  logoutButton: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: '#FF3B30',
-  },
-  logoutText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FF3B30',
-    marginLeft: 12,
-  },
-  footer: {
-    padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-  },
-  footerText: {
-    fontSize: 14,
-    color: '#86868B',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-});
