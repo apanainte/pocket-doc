@@ -31,10 +31,7 @@
         "NSPhotoLibraryUsageDescription": "Pocket Doc needs photo library access to upload images as documents.",
         "NSFaceIDUsageDescription": "Pocket Doc uses Face ID to securely authenticate and protect your documents.",
         "NSMicrophoneUsageDescription": "Pocket Doc may need microphone access for document scanning features.",
-        "UIBackgroundModes": [
-          "background-processing",
-          "background-processing"
-        ],
+
         "CFBundleDisplayName": "Pocket Doc",
         "ITSAppUsesNonExemptEncryption": false
       }
