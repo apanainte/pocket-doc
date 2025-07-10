@@ -1,111 +1,185 @@
 import { useState, useEffect } from 'react';
 import { Document } from '@/types/document';
-
-// Mock data for demonstration
-const mockDocuments: Document[] = [
-  {
-    id: '1',
-    title: 'Business Contract',
-    description: 'Service agreement between companies with terms and conditions',
-    tags: ['contract', 'business', 'legal', 'agreement'],
-    type: 'pdf',
-    uri: 'https://images.pexels.com/photos/4386370/pexels-photo-4386370.jpeg?auto=compress&cs=tinysrgb&w=400',
-    thumbnail: 'https://images.pexels.com/photos/4386370/pexels-photo-4386370.jpeg?auto=compress&cs=tinysrgb&w=400',
-    createdAt: new Date('2024-01-15'),
-    updatedAt: new Date('2024-01-15'),
-    fileSize: 245760
-  },
-  {
-    id: '2',
-    title: 'Recipe Collection',
-    description: 'Collection of family recipes with ingredients and instructions',
-    tags: ['recipe', 'cooking', 'family', 'food'],
-    type: 'image',
-    uri: 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=400',
-    thumbnail: 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=400',
-    createdAt: new Date('2024-01-10'),
-    updatedAt: new Date('2024-01-10'),
-    fileSize: 187520
-  },
-  {
-    id: '3',
-    title: 'Travel Itinerary',
-    description: 'Complete travel plan with hotels, flights, and activities',
-    tags: ['travel', 'vacation', 'itinerary', 'planning'],
-    type: 'pdf',
-    uri: 'https://images.pexels.com/photos/1008155/pexels-photo-1008155.jpeg?auto=compress&cs=tinysrgb&w=400',
-    thumbnail: 'https://images.pexels.com/photos/1008155/pexels-photo-1008155.jpeg?auto=compress&cs=tinysrgb&w=400',
-    createdAt: new Date('2024-01-05'),
-    updatedAt: new Date('2024-01-05'),
-    fileSize: 156890
-  }
-];
+import { databaseService } from '@/services/database';
+import { fileStorageService } from '@/services/fileStorage';
+import ValidationService from '@/services/validation';
 
 export function useDocuments() {
-  const [documents, setDocuments] = useState<Document[]>(mockDocuments);
+  const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [initialized, setInitialized] = useState(false);
 
-  const addDocument = async (document: Omit<Document, 'id' | 'createdAt' | 'updatedAt'>) => {
+  // Initialize services and load documents
+  useEffect(() => {
+    const initializeServices = async () => {
+      try {
+        setLoading(true);
+        await databaseService.initialize();
+        await fileStorageService.initialize();
+        const loadedDocuments = await databaseService.getAllDocuments();
+        setDocuments(loadedDocuments);
+        setInitialized(true);
+      } catch (err) {
+        console.error('Failed to initialize services:', err);
+        setError('Failed to initialize document storage');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeServices();
+  }, []);
+
+  const addDocument = async (document: Omit<Document, 'id' | 'createdAt' | 'updatedAt'>, sourceUri?: string) => {
+    if (!initialized) {
+      throw new Error('Document storage not initialized');
+    }
+
     setLoading(true);
     setError(null);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const newDocument: Document = {
+      // Validate document data
+      const validation = ValidationService.validateDocument(
+        document.title,
+        document.description,
+        document.tags.join(', ')
+      );
+
+      const validationError = ValidationService.formatValidationError(validation);
+      if (validationError) {
+        throw new Error(validationError);
+      }
+
+      // Use sanitized values
+      const sanitizedDocument = {
         ...document,
-        id: Date.now().toString(),
-        createdAt: new Date(),
-        updatedAt: new Date()
+        title: validation.title.sanitized || document.title,
+        description: validation.description.sanitized || document.description,
+        tags: validation.tags.sanitized?.split(', ').map(tag => tag.trim()) || document.tags
       };
+
+      // Store file if source URI is provided
+      let finalDocument = sanitizedDocument;
+      if (sourceUri) {
+        // Generate a temporary ID for file storage
+        const tempId = `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Validate file type
+        const fileValidation = ValidationService.validateFileType(sourceUri, [document.type]);
+        if (!fileValidation.isValid) {
+          throw new Error(fileValidation.error);
+        }
+
+        // Store the file
+        const fileResult = await fileStorageService.storeFile(sourceUri, tempId, document.type);
+        
+        finalDocument = {
+          ...sanitizedDocument,
+          uri: fileResult.storedUri,
+          thumbnail: fileResult.thumbnailUri || sanitizedDocument.thumbnail,
+          fileSize: fileResult.fileSize
+        };
+      }
+
+      // Save to database
+      const newDocument = await databaseService.addDocument(finalDocument);
       
-      setDocuments(prev => [newDocument, ...prev]);
+      // Update local state
+      setDocuments((prev: Document[]) => [newDocument, ...prev]);
       return newDocument;
     } catch (err) {
-      setError('Failed to add document');
-      throw err;
+      const errorMessage = err instanceof Error ? err.message : 'Failed to add document';
+      setError(errorMessage);
+      throw new Error(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
   const updateDocument = async (id: string, updates: Partial<Document>) => {
+    if (!initialized) {
+      throw new Error('Document storage not initialized');
+    }
+
     setLoading(true);
     setError(null);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Validate updates if they contain user input
+      if (updates.title || updates.description || updates.tags) {
+        const currentDoc = documents.find(doc => doc.id === id);
+        if (!currentDoc) {
+          throw new Error('Document not found');
+        }
+
+        const validation = ValidationService.validateDocument(
+          updates.title || currentDoc.title,
+          updates.description || currentDoc.description,
+          (updates.tags || currentDoc.tags).join(', ')
+        );
+
+        const validationError = ValidationService.formatValidationError(validation);
+        if (validationError) {
+          throw new Error(validationError);
+        }
+
+        // Use sanitized values
+        updates = {
+          ...updates,
+          title: validation.title.sanitized || updates.title,
+          description: validation.description.sanitized || updates.description,
+          tags: validation.tags.sanitized?.split(', ').map(tag => tag.trim()) || updates.tags
+        };
+      }
+
+      // Update in database
+      await databaseService.updateDocument(id, updates);
       
-      setDocuments(prev => 
-        prev.map(doc => 
+      // Update local state
+      setDocuments((prev: Document[]) => 
+        prev.map((doc: Document) => 
           doc.id === id 
             ? { ...doc, ...updates, updatedAt: new Date() }
             : doc
         )
       );
     } catch (err) {
-      setError('Failed to update document');
-      throw err;
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update document';
+      setError(errorMessage);
+      throw new Error(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
   const deleteDocument = async (id: string) => {
+    if (!initialized) {
+      throw new Error('Document storage not initialized');
+    }
+
     setLoading(true);
     setError(null);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Find document to delete its files
+      const documentToDelete = documents.find((doc: Document) => doc.id === id);
       
-      setDocuments(prev => prev.filter(doc => doc.id !== id));
+      // Delete from database first
+      await databaseService.deleteDocument(id);
+      
+      // Delete files if document exists
+      if (documentToDelete) {
+        await fileStorageService.deleteDocumentFiles(documentToDelete);
+      }
+      
+      // Update local state
+      setDocuments((prev: Document[]) => prev.filter((doc: Document) => doc.id !== id));
     } catch (err) {
-      setError('Failed to delete document');
-      throw err;
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete document';
+      setError(errorMessage);
+      throw new Error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -114,12 +188,20 @@ export function useDocuments() {
   const searchDocuments = (query: string) => {
     if (!query.trim()) return documents;
     
-    const lowercaseQuery = query.toLowerCase();
-    return documents.filter(doc => 
-      doc.title.toLowerCase().includes(lowercaseQuery) ||
-      doc.description.toLowerCase().includes(lowercaseQuery) ||
-      doc.tags.some(tag => tag.toLowerCase().includes(lowercaseQuery))
-    );
+    try {
+      // Use database search for better performance and relevance ranking
+      return databaseService.searchDocuments(query);
+    } catch (err) {
+      console.error('Database search failed, falling back to local search:', err);
+      
+      // Fallback to local search
+      const lowercaseQuery = query.toLowerCase();
+      return documents.filter((doc: Document) => 
+        doc.title.toLowerCase().includes(lowercaseQuery) ||
+        doc.description.toLowerCase().includes(lowercaseQuery) ||
+        doc.tags.some((tag: string) => tag.toLowerCase().includes(lowercaseQuery))
+      );
+    }
   };
 
   return {

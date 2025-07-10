@@ -7,22 +7,59 @@ import {
   TextInput,
   FlatList,
   TouchableOpacity,
-  Dimensions
+  Dimensions,
+  Alert
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Search, X, Filter } from 'lucide-react-native';
 import { DocumentCard } from '@/components/DocumentCard';
 import { DocumentDetailModal } from '@/components/DocumentDetailModal';
-import { useDocuments } from '@/hooks/useDocuments';
+import { databaseService } from '@/services/database';
 import { Document } from '@/types/document';
 
 const { width } = Dimensions.get('window');
 
 export default function SearchScreen() {
-  const { documents, updateDocument, deleteDocument, searchDocuments } = useDocuments();
+  const [documents, setDocuments] = useState<Document[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Document[]>([]);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+
+  // Initialize database and load documents
+  useEffect(() => {
+    const initAndLoad = async () => {
+      try {
+        await databaseService.initialize();
+        const loadedDocuments = await databaseService.getAllDocuments();
+        setDocuments(loadedDocuments);
+      } catch (err) {
+        console.error('Failed to load documents for search:', err);
+        setDocuments([]);
+      }
+    };
+
+    initAndLoad();
+  }, []);
+
+  // Refresh documents when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      loadDocuments();
+    }, [])
+  );
+
+  // Search functionality
+  const searchDocuments = (query: string): Document[] => {
+    if (!query.trim()) return [];
+    
+    const searchTerm = query.toLowerCase();
+    return documents.filter(doc =>
+      doc.title.toLowerCase().includes(searchTerm) ||
+      doc.description.toLowerCase().includes(searchTerm) ||
+      doc.tags.some(tag => tag.toLowerCase().includes(searchTerm))
+    );
+  };
 
   useEffect(() => {
     if (searchQuery.trim()) {
@@ -32,6 +69,35 @@ export default function SearchScreen() {
       setSearchResults([]);
     }
   }, [searchQuery, documents]);
+
+  const loadDocuments = async () => {
+    try {
+      const loadedDocuments = await databaseService.getAllDocuments();
+      setDocuments(loadedDocuments);
+    } catch (err) {
+      console.error('Failed to load documents:', err);
+    }
+  };
+
+  const updateDocument = async (id: string, updates: Partial<Document>) => {
+    try {
+      await databaseService.updateDocument(id, updates);
+      await loadDocuments(); // Refresh the list
+    } catch (err) {
+      console.error('Failed to update document:', err);
+      Alert.alert('Error', 'Failed to update document');
+    }
+  };
+
+  const deleteDocument = async (id: string) => {
+    try {
+      await databaseService.deleteDocument(id);
+      await loadDocuments(); // Refresh the list
+    } catch (err) {
+      console.error('Failed to delete document:', err);
+      Alert.alert('Error', 'Failed to delete document');
+    }
+  };
 
   const clearSearch = () => {
     setSearchQuery('');

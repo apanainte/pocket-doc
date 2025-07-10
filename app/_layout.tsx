@@ -10,6 +10,8 @@ import {
   Inter_700Bold
 } from '@expo-google-fonts/inter';
 import { SplashScreen } from 'expo-router';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { databaseService } from '@/services/database';
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -24,6 +26,20 @@ export default function RootLayout() {
     'Inter-Bold': Inter_700Bold,
   });
 
+  // Initialize database early
+  useEffect(() => {
+    const initDatabase = async () => {
+      try {
+        await databaseService.initialize();
+        console.log('Database initialized in root layout');
+      } catch (error) {
+        console.error('Failed to initialize database in root layout:', error);
+      }
+    };
+
+    initDatabase();
+  }, []);
+
   useEffect(() => {
     if (fontsLoaded || fontError) {
       SplashScreen.hideAsync();
@@ -35,12 +51,12 @@ export default function RootLayout() {
   }
 
   return (
-    <>
+    <ErrorBoundary>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="auto" />
-    </>
+    </ErrorBoundary>
   );
 }

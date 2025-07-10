@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -9,23 +9,84 @@ import {
   RefreshControl,
   Alert
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { DocumentCard } from '@/components/DocumentCard';
 import { DocumentDetailModal } from '@/components/DocumentDetailModal';
-import { useDocuments } from '@/hooks/useDocuments';
+import { databaseService } from '@/services/database';
 import { Document } from '@/types/document';
 import { Grid2x2 as Grid, List } from 'lucide-react-native';
 
 export default function LibraryScreen() {
-  const { documents, loading, error, updateDocument, deleteDocument } = useDocuments();
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [refreshing, setRefreshing] = useState(false);
 
+  // Initialize database and load documents
+  useEffect(() => {
+    const initAndLoad = async () => {
+      try {
+        setIsLoading(true);
+        await databaseService.initialize();
+        const loadedDocuments = await databaseService.getAllDocuments();
+        setDocuments(loadedDocuments);
+        setError(null);
+      } catch (err) {
+        console.error('Failed to load documents:', err);
+        setError('Failed to load documents');
+        setDocuments([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initAndLoad();
+  }, []);
+
+  // Refresh documents when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      loadDocuments();
+    }, [])
+  );
+
+  const loadDocuments = async () => {
+    try {
+      const loadedDocuments = await databaseService.getAllDocuments();
+      setDocuments(loadedDocuments);
+      setError(null);
+    } catch (err) {
+      console.error('Failed to load documents:', err);
+      setError('Failed to load documents');
+    }
+  };
+
   const handleRefresh = async () => {
     setRefreshing(true);
-    // Simulate refresh
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await loadDocuments();
     setRefreshing(false);
+  };
+
+  const updateDocument = async (id: string, updates: Partial<Document>) => {
+    try {
+      await databaseService.updateDocument(id, updates);
+      await loadDocuments(); // Refresh the list
+    } catch (err) {
+      console.error('Failed to update document:', err);
+      Alert.alert('Error', 'Failed to update document');
+    }
+  };
+
+  const deleteDocument = async (id: string) => {
+    try {
+      await databaseService.deleteDocument(id);
+      await loadDocuments(); // Refresh the list
+    } catch (err) {
+      console.error('Failed to delete document:', err);
+      Alert.alert('Error', 'Failed to delete document');
+    }
   };
 
   const renderDocument = ({ item }: { item: Document }) => (

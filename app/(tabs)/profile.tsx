@@ -5,67 +5,37 @@ import {
   StyleSheet,
   SafeAreaView,
   TouchableOpacity,
-  ScrollView,
-  Alert
+  Alert,
 } from 'react-native';
-import { User, Settings, CircleHelp as HelpCircle, Shield, Bell, Database, ChevronRight, LogOut } from 'lucide-react-native';
+import { LogOut, Shield, User } from 'lucide-react-native';
+import * as SecureStore from 'expo-secure-store';
 
 export default function ProfileScreen() {
-  const handleSettingsPress = (setting: string) => {
-    Alert.alert('Coming Soon', `${setting} feature will be available soon`);
-  };
-
-  const handleLogout = () => {
+  const handleLogout = async () => {
     Alert.alert(
       'Logout',
-      'Are you sure you want to logout?',
+      'Are you sure you want to logout? You will need to authenticate again to access your documents.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Logout', style: 'destructive', onPress: () => {
-          // Handle logout logic here
-          Alert.alert('Logged out', 'You have been logged out successfully');
-        }}
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await SecureStore.deleteItemAsync('auth_token');
+              // Force app reload by reloading the page in Expo
+              if (typeof window !== 'undefined') {
+                window.location.reload();
+              }
+            } catch (error) {
+              console.error('Logout error:', error);
+              Alert.alert('Error', 'Failed to logout properly');
+            }
+          },
+        },
       ]
     );
   };
-
-  const MenuSection = ({ title, children }: { title: string; children: React.ReactNode }) => (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      <View style={styles.sectionContent}>
-        {children}
-      </View>
-    </View>
-  );
-
-  const MenuItem = ({ 
-    icon, 
-    title, 
-    subtitle, 
-    onPress,
-    showChevron = true 
-  }: { 
-    icon: React.ReactNode; 
-    title: string; 
-    subtitle?: string; 
-    onPress: () => void;
-    showChevron?: boolean;
-  }) => (
-    <TouchableOpacity style={styles.menuItem} onPress={onPress}>
-      <View style={styles.menuItemLeft}>
-        <View style={styles.iconContainer}>
-          {icon}
-        </View>
-        <View style={styles.menuItemText}>
-          <Text style={styles.menuItemTitle}>{title}</Text>
-          {subtitle && (
-            <Text style={styles.menuItemSubtitle}>{subtitle}</Text>
-          )}
-        </View>
-      </View>
-      {showChevron && <ChevronRight size={20} color="#8E8E93" />}
-    </TouchableOpacity>
-  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -73,62 +43,38 @@ export default function ProfileScreen() {
         <Text style={styles.title}>Profile</Text>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.profileSection}>
-          <View style={styles.avatarContainer}>
-            <User size={32} color="#007AFF" />
+      <View style={styles.content}>
+        <View style={styles.userSection}>
+          <View style={styles.userIcon}>
+            <User size={40} color="#007AFF" />
           </View>
-          <Text style={styles.userName}>John Doe</Text>
-          <Text style={styles.userEmail}>john.doe@example.com</Text>
+          <Text style={styles.userName}>Pocket Doc User</Text>
+          <Text style={styles.userEmail}>Authenticated Locally</Text>
         </View>
 
-        <MenuSection title="Preferences">
-          <MenuItem
-            icon={<Bell size={20} color="#007AFF" />}
-            title="Notifications"
-            subtitle="Manage your notification preferences"
-            onPress={() => handleSettingsPress('Notifications')}
-          />
-          <MenuItem
-            icon={<Database size={20} color="#007AFF" />}
-            title="Storage"
-            subtitle="Manage your document storage"
-            onPress={() => handleSettingsPress('Storage')}
-          />
-          <MenuItem
-            icon={<Shield size={20} color="#007AFF" />}
-            title="Privacy & Security"
-            subtitle="Control your privacy settings"
-            onPress={() => handleSettingsPress('Privacy & Security')}
-          />
-        </MenuSection>
-
-        <MenuSection title="Support">
-          <MenuItem
-            icon={<HelpCircle size={20} color="#007AFF" />}
-            title="Help & Support"
-            subtitle="Get help and contact support"
-            onPress={() => handleSettingsPress('Help & Support')}
-          />
-          <MenuItem
-            icon={<Settings size={20} color="#007AFF" />}
-            title="Settings"
-            subtitle="App settings and preferences"
-            onPress={() => handleSettingsPress('Settings')}
-          />
-        </MenuSection>
-
-        <View style={styles.logoutSection}>
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <LogOut size={20} color="#FF3B30" />
-            <Text style={styles.logoutText}>Logout</Text>
-          </TouchableOpacity>
+        <View style={styles.settingsSection}>
+          <View style={styles.settingItem}>
+            <Shield size={24} color="#34C759" />
+            <View style={styles.settingContent}>
+              <Text style={styles.settingTitle}>Security</Text>
+              <Text style={styles.settingDescription}>
+                Documents are encrypted and stored locally
+              </Text>
+            </View>
+          </View>
         </View>
+
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <LogOut size={24} color="#FF3B30" />
+          <Text style={styles.logoutText}>Logout</Text>
+        </TouchableOpacity>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>Version 1.0.0</Text>
+          <Text style={styles.footerText}>
+            Your documents are stored securely on this device only.
+          </Text>
         </View>
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -136,7 +82,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F2F2F7',
   },
   header: {
     paddingHorizontal: 16,
@@ -145,112 +91,90 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontFamily: 'Inter-Bold',
-    color: '#1C1C1E',
+    fontWeight: '700',
+    color: '#1D1D1F',
   },
   content: {
     flex: 1,
+    padding: 16,
   },
-  profileSection: {
-    backgroundColor: '#ffffff',
+  userSection: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
     alignItems: 'center',
-    paddingVertical: 32,
     marginBottom: 24,
   },
-  avatarContainer: {
+  userIcon: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#E8F4FD',
+    backgroundColor: '#F2F2F7',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
   },
   userName: {
-    fontSize: 24,
-    fontFamily: 'Inter-Bold',
-    color: '#1C1C1E',
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#1D1D1F',
     marginBottom: 4,
   },
   userEmail: {
     fontSize: 16,
-    fontFamily: 'Inter-Regular',
-    color: '#8E8E93',
+    color: '#86868B',
   },
-  section: {
+  settingsSection: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
     marginBottom: 24,
   },
-  sectionTitle: {
-    fontSize: 14,
-    fontFamily: 'Inter-SemiBold',
-    color: '#8E8E93',
-    marginBottom: 8,
-    marginHorizontal: 16,
-    textTransform: 'uppercase',
-  },
-  sectionContent: {
-    backgroundColor: '#ffffff',
-  },
-  menuItem: {
+  settingItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
   },
-  menuItemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  settingContent: {
+    marginLeft: 16,
     flex: 1,
   },
-  iconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: '#F5F5F5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  menuItemText: {
-    flex: 1,
-  },
-  menuItemTitle: {
+  settingTitle: {
     fontSize: 16,
-    fontFamily: 'Inter-Medium',
-    color: '#1C1C1E',
+    fontWeight: '600',
+    color: '#1D1D1F',
+    marginBottom: 4,
   },
-  menuItemSubtitle: {
+  settingDescription: {
     fontSize: 14,
-    fontFamily: 'Inter-Regular',
-    color: '#8E8E93',
-    marginTop: 2,
-  },
-  logoutSection: {
-    backgroundColor: '#ffffff',
-    marginBottom: 24,
+    color: '#86868B',
+    lineHeight: 20,
   },
   logoutButton: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    justifyContent: 'center',
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#FF3B30',
   },
   logoutText: {
     fontSize: 16,
-    fontFamily: 'Inter-Medium',
+    fontWeight: '600',
     color: '#FF3B30',
     marginLeft: 12,
   },
   footer: {
-    alignItems: 'center',
-    paddingVertical: 24,
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
   },
   footerText: {
     fontSize: 14,
-    fontFamily: 'Inter-Regular',
-    color: '#8E8E93',
+    color: '#86868B',
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });

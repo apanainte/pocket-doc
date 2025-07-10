@@ -1,8 +1,47 @@
+import React, { useState, useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
 import { Upload, Search, Library, User } from 'lucide-react-native';
+import SimpleAuthScreen from '@/components/SimpleAuthScreen';
+import * as SecureStore from 'expo-secure-store';
 
 export default function TabLayout() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    checkAuthStatus();
+  }, []);
+
+  const checkAuthStatus = async () => {
+    try {
+      // For testing, always require authentication
+      // const token = await SecureStore.getItemAsync('auth_token');
+      // setIsAuthenticated(!!token);
+      
+      // Force authentication screen for now
+      setIsAuthenticated(false);
+      console.log('Authentication required');
+    } catch (error) {
+      console.error('Error checking auth status:', error);
+      setIsAuthenticated(false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAuthenticated = () => {
+    setIsAuthenticated(true);
+  };
+
+  if (isLoading) {
+    return null; // Or a loading spinner
+  }
+
+  if (!isAuthenticated) {
+    return <SimpleAuthScreen onAuthenticated={handleAuthenticated} />;
+  }
+
   return (
     <Tabs
       screenOptions={{

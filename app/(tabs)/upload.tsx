@@ -15,14 +15,14 @@ import {
 import { Camera, Upload, FileText, CreditCard as Edit2, Save, X } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import { useDocuments } from '@/hooks/useDocuments';
 import { generateMetadata } from '@/services/aiMetadata';
+import { databaseService } from '@/services/database';
 import { Document } from '@/types/document';
 
 const { width } = Dimensions.get('window');
 
 export default function UploadScreen() {
-  const { addDocument, loading } = useDocuments();
+  const [isUploading, setIsUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<{
     uri: string;
     type: 'image' | 'pdf';
@@ -40,57 +40,97 @@ export default function UploadScreen() {
   const [editedTags, setEditedTags] = useState('');
   const [processingAI, setProcessingAI] = useState(false);
 
+  // Initialize database
+  React.useEffect(() => {
+    const initDB = async () => {
+      try {
+        await databaseService.initialize();
+      } catch (error) {
+        console.error('Failed to initialize database:', error);
+      }
+    };
+    initDB();
+  }, []);
+
   const pickImage = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
-    if (!permissionResult.granted) {
-      Alert.alert('Permission required', 'Permission to access photo library is required');
-      return;
-    }
+    // Show friendly message first
+    Alert.alert(
+      'Photo Library Access',
+      'Pocket Doc needs access to your photo library to upload images as documents.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Allow', 
+          onPress: async () => {
+            const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            
+            if (!permissionResult.granted) {
+              Alert.alert('Permission required', 'Photo library permission is needed to upload images');
+              return;
+            }
+            
+            // Continue with photo picker
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: true,
+              aspect: [4, 3],
+              quality: 0.8,
+            });
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      const asset = result.assets[0];
-      setSelectedFile({
-        uri: asset.uri,
-        type: 'image',
-        name: asset.fileName || 'image.jpg',
-        size: asset.fileSize
-      });
-      await processWithAI(asset.uri, 'image');
-    }
+            if (!result.canceled && result.assets[0]) {
+              const asset = result.assets[0];
+              setSelectedFile({
+                uri: asset.uri,
+                type: 'image',
+                name: asset.fileName || 'image.jpg',
+                size: asset.fileSize
+              });
+              await processWithAI(asset.uri, 'image');
+            }
+          }
+        }
+      ]
+    );
   };
 
   const takePhoto = async () => {
-    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-    
-    if (!permissionResult.granted) {
-      Alert.alert('Permission required', 'Permission to access camera is required');
-      return;
-    }
+    // Show friendly message first
+    Alert.alert(
+      'Camera Access',
+      'Pocket Doc needs camera access to capture document photos for your personal library.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Allow', 
+          onPress: async () => {
+            const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+            
+            if (!permissionResult.granted) {
+              Alert.alert('Permission required', 'Camera permission is needed to take photos');
+              return;
+            }
+            
+            // Continue with camera
+            const result = await ImagePicker.launchCameraAsync({
+              allowsEditing: true,
+              aspect: [4, 3],
+              quality: 0.8,
+            });
 
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      const asset = result.assets[0];
-      setSelectedFile({
-        uri: asset.uri,
-        type: 'image',
-        name: 'photo.jpg',
-        size: asset.fileSize
-      });
-      await processWithAI(asset.uri, 'image');
-    }
+            if (!result.canceled && result.assets[0]) {
+              const asset = result.assets[0];
+              setSelectedFile({
+                uri: asset.uri,
+                type: 'image',
+                name: 'photo.jpg',
+                size: asset.fileSize
+              });
+              await processWithAI(asset.uri, 'image');
+            }
+          }
+        }
+      ]
+    );
   };
 
   const pickDocument = async () => {
@@ -146,7 +186,9 @@ export default function UploadScreen() {
         fileSize: selectedFile.size
       };
 
-      await addDocument(newDocument);
+      setIsUploading(true);
+      await databaseService.addDocument(newDocument);
+      setIsUploading(false);
       
       // Reset form
       setSelectedFile(null);
@@ -293,11 +335,11 @@ export default function UploadScreen() {
                 </View>
 
                 <TouchableOpacity 
-                  style={[styles.saveButton, loading && styles.saveButtonDisabled]}
+                  style={[styles.saveButton, isUploading && styles.saveButtonDisabled]}
                   onPress={handleSave}
-                  disabled={loading}
+                  disabled={isUploading}
                 >
-                  {loading ? (
+                  {isUploading ? (
                     <ActivityIndicator size="small" color="#ffffff" />
                   ) : (
                     <>
