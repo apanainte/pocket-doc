@@ -103,13 +103,13 @@ export default function SearchScreen() {
 
       {renderHeader()}
 
-      {searchQuery.trim() && searchResults.length > 0 && (
+      {searchQuery.trim() && searchResults.length > 0 ? (
         <View style={styles.resultsHeader}>
           <Text style={styles.resultsText}>
             {searchResults.length} result{searchResults.length !== 1 ? 's' : ''} found
           </Text>
         </View>
-      )}
+      ) : null}
 
       <FlatList
         data={searchResults}
