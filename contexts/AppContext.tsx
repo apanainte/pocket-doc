@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { Document } from '@/types/document';
-import { DocumentService } from '@/services/database';
+import { databaseService } from '@/services/database'; // Use singleton instead of new instance
 import { AuthService } from '@/services/auth';
 import { Alert } from 'react-native';
 
@@ -49,8 +49,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     error: null,
   });
 
-  const documentService = new DocumentService();
-  const authService = new AuthService();
+  const authService = new AuthService(); // Only auth service needs new instance
 
   // Initialize app
   useEffect(() => {
@@ -61,15 +60,15 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     try {
       setState(prev => ({ ...prev, isLoading: true }));
       
-      // Initialize database
-      await documentService.initDB();
+      // Database should already be initialized by root layout, but ensure it's ready
+      await databaseService.initialize();
       
       // Check authentication status
       const isAuthenticated = await authService.isAuthenticated();
       
       if (isAuthenticated) {
         // Load documents if authenticated
-        const documents = await documentService.getAllDocuments();
+        const documents = await databaseService.getAllDocuments();
         setState(prev => ({
           ...prev,
           documents,
@@ -84,6 +83,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         }));
       }
     } catch (error) {
+      console.error('App initialization error:', error);
       setState(prev => ({
         ...prev,
         error: error instanceof Error ? error.message : 'Failed to initialize app',
@@ -95,7 +95,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const addDocument = async (document: Omit<Document, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
       setState(prev => ({ ...prev, isLoading: true }));
-      const newDocument = await documentService.addDocument(document);
+      const newDocument = await databaseService.addDocument(document);
       setState(prev => ({
         ...prev,
         documents: [newDocument, ...prev.documents],
@@ -114,12 +114,13 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const updateDocument = async (id: string, updates: Partial<Document>) => {
     try {
       setState(prev => ({ ...prev, isLoading: true }));
-      const updatedDocument = await documentService.updateDocument(id, updates);
+      await databaseService.updateDocument(id, updates);
+      
+      // Refresh the document from database to get updated data
+      const allDocuments = await databaseService.getAllDocuments();
       setState(prev => ({
         ...prev,
-        documents: prev.documents.map(doc => 
-          doc.id === id ? updatedDocument : doc
-        ),
+        documents: allDocuments,
         isLoading: false,
       }));
     } catch (error) {
@@ -135,7 +136,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const deleteDocument = async (id: string) => {
     try {
       setState(prev => ({ ...prev, isLoading: true }));
-      await documentService.deleteDocument(id);
+      await databaseService.deleteDocument(id);
       setState(prev => ({
         ...prev,
         documents: prev.documents.filter(doc => doc.id !== id),
@@ -158,7 +159,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     return state.documents.filter(doc =>
       doc.title.toLowerCase().includes(searchTerm) ||
       doc.description.toLowerCase().includes(searchTerm) ||
-      doc.tags.some(tag => tag.toLowerCase().includes(searchTerm))
+      doc.tags.some(tag => tag.toLowerCase().includes(searchTerm)) ||
+      (doc.extractedText && doc.extractedText.toLowerCase().includes(searchTerm))
     );
   };
 
@@ -181,7 +183,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         // Small delay to ensure state updates properly
         await new Promise(resolve => setTimeout(resolve, 100));
         try {
-          const documents = await documentService.getAllDocuments();
+          const documents = await databaseService.getAllDocuments();
           setState(prev => ({
             ...prev,
             isAuthenticated: true,
@@ -190,7 +192,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
             error: null,
           }));
         } catch (dbError) {
-          console.error('Database initialization error:', dbError);
+          console.error('Database error during authentication:', dbError);
           setState(prev => ({
             ...prev,
             isAuthenticated: true,

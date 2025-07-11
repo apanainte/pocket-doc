@@ -13,7 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Camera, Upload, FileText, Edit2, Save, X } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import { generateMetadata } from '@/services/aiMetadata';
+import { generateMetadata, generateEnhancedMetadata } from '@/services/aiMetadata';
 import { databaseService } from '@/services/database';
 import { Document } from '@/types/document';
 import { RevolutCard } from '@/components/ui/RevolutCard';
@@ -32,6 +32,9 @@ export default function UploadScreen() {
     type: 'image' | 'pdf';
     name: string;
     size?: number;
+    extractedText?: string;
+    ocrConfidence?: number;
+    processingTime?: number;
   } | null>(null);
   const [metadata, setMetadata] = useState<{
     title: string;
@@ -43,18 +46,6 @@ export default function UploadScreen() {
   const [editedDescription, setEditedDescription] = useState('');
   const [editedTags, setEditedTags] = useState('');
   const [processingAI, setProcessingAI] = useState(false);
-
-  // Initialize database with cleanup
-  React.useEffect(() => {
-    const initDB = async () => {
-      try {
-        await databaseService.initialize();
-      } catch (error) {
-        console.error('Failed to initialize database:', error);
-      }
-    };
-    initDB();
-  }, []);
 
   const pickImage = useCallback(async () => {
     try {
@@ -157,11 +148,30 @@ export default function UploadScreen() {
   const processWithAI = useCallback(async (uri: string, type: 'image' | 'pdf') => {
     setProcessingAI(true);
     try {
-      const generatedMetadata = await generateMetadata(uri, type);
+      // Use the enhanced metadata generation with OCR
+      const result = await generateEnhancedMetadata(uri, type);
+      
+      const generatedMetadata = {
+        title: result.title,
+        description: result.description,
+        tags: result.tags
+      };
+      
       setMetadata(generatedMetadata);
-      setEditedTitle(generatedMetadata.title);
-      setEditedDescription(generatedMetadata.description);
-      setEditedTags(generatedMetadata.tags.join(', '));
+      setEditedTitle(result.title);
+      setEditedDescription(result.description);
+      setEditedTags(result.tags.join(', '));
+      
+      // Store OCR data for later use
+      if (result.extractedText) {
+        setSelectedFile(prev => prev ? {
+          ...prev,
+          extractedText: result.extractedText,
+          ocrConfidence: result.confidence,
+          processingTime: result.processingTime
+        } : null);
+      }
+      
     } catch (error) {
       console.error('Error processing with AI:', error);
       Alert.alert('Error', 'Failed to generate metadata');
@@ -214,7 +224,15 @@ export default function UploadScreen() {
         type: selectedFile.type,
         uri: selectedFile.uri,
         thumbnail: selectedFile.type === 'image' ? selectedFile.uri : undefined,
-        fileSize: selectedFile.size
+        fileSize: selectedFile.size,
+        extractedText: selectedFile.extractedText,
+        ocrData: selectedFile.ocrConfidence ? {
+          text: selectedFile.extractedText || '',
+          confidence: selectedFile.ocrConfidence,
+          blocks: [],
+          processingTime: selectedFile.processingTime || 0,
+          imageSize: { width: 0, height: 0 }
+        } : undefined
       };
 
       setIsUploading(true);
@@ -228,7 +246,7 @@ export default function UploadScreen() {
       setEditedDescription('');
       setEditedTags('');
       
-      Alert.alert('Success', 'Document uploaded successfully!');
+      Alert.alert('Success', 'Document uploaded successfully with OCR!');
     } catch (error) {
       console.error('Error saving document:', error);
       Alert.alert('Error', 'Failed to save document');
@@ -353,6 +371,22 @@ export default function UploadScreen() {
                 ? `${(selectedFile.size / 1024).toFixed(1)}KB`
                 : `${(selectedFile.size / (1024 * 1024)).toFixed(1)}MB`}
             </RevolutText>
+          )}
+          
+          {selectedFile.extractedText && (
+            <View style={{
+              marginTop: spacing.sm,
+              paddingHorizontal: spacing.md,
+              paddingVertical: spacing.xs,
+              backgroundColor: theme.colors.success + '20',
+              borderRadius: borderRadius.md,
+              flexDirection: 'row',
+              alignItems: 'center',
+            }}>
+              <RevolutText variant="caption" color={theme.colors.success} style={{ fontWeight: '600' }}>
+                ✓ Text Extracted{selectedFile.ocrConfidence ? ` (${Math.round(selectedFile.ocrConfidence * 100)}% confidence)` : ''}
+              </RevolutText>
+            </View>
           )}
           
           <TouchableOpacity
