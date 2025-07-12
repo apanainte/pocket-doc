@@ -126,7 +126,8 @@ export async function generateMetadata(
 export async function generateEnhancedMetadata(
   uri: string,
   type: 'image' | 'pdf',
-  existingText?: string
+  existingText?: string,
+  isScannedDocument?: boolean
 ): Promise<MetadataGenerationResponse & {
   extractedText?: string;
   confidence?: number;
@@ -151,10 +152,16 @@ export async function generateEnhancedMetadata(
         // Enable debug mode for enhanced logging
         ocrService.enableDebugMode();
         
-        const ocrResult = await ocrService.recognizeText(uri, {
-          recognitionLevel: 'accurate',
-          minimumConfidence: 0.3  // Even lower threshold to capture more results
-        });
+        // Use enhanced OCR for scanned documents
+        const ocrResult = isScannedDocument 
+          ? await ocrService.recognizeTextFromScannedDocument(uri, {
+              recognitionLevel: 'accurate',
+              minimumConfidence: 0.3  // Even lower threshold to capture more results
+            })
+          : await ocrService.recognizeText(uri, {
+              recognitionLevel: 'accurate',
+              minimumConfidence: 0.3  // Even lower threshold to capture more results
+            });
         
         extractedText = ocrResult.text;
         confidence = ocrResult.confidence;

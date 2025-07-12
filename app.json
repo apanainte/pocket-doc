@@ -83,6 +83,14 @@
           "cameraPermission": "Pocket Doc needs camera access to capture document photos with enhanced OCR text recognition. All processing is done locally on your device for maximum privacy."
         }
       ],
+      [
+        "react-native-document-scanner-plugin",
+        {
+          "cameraPermission": "Pocket Doc needs camera access to scan documents with automatic edge detection and perspective correction. All processing is done locally on your device for maximum privacy.",
+          "enableVibration": true,
+          "responseType": "imageFilePath"
+        }
+      ],
       "expo-sqlite",
       [
         "expo-local-authentication",

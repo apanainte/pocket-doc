@@ -9,6 +9,7 @@
 export { ocrService } from './ocrService';
 export { databaseService } from './database';
 export { fileStorageService } from './fileStorage';
+export { documentScannerService } from './DocumentScannerService';
 
 // Processing Services
 export { textProcessingService } from './textProcessingService';

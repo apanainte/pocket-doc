@@ -24,6 +24,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { validateFile, FileInfo } from '@/services/fileValidation';
 import { trackFileUpload, trackUIInteraction, completeOperation, startOperation } from '@/services/performanceMonitoring';
 import { captureError, addBreadcrumb } from '@/services/monitoring';
+import { documentScannerService } from '@/services/DocumentScannerService';
 
 const { width } = Dimensions.get('window');
 
@@ -289,7 +290,82 @@ export default function UploadScreen() {
     }
   }, [validateSelectedFile]);
 
-  const processWithAI = useCallback(async (uri: string, type: 'image' | 'pdf') => {
+  const scanDocument = useCallback(async () => {
+    const operationId = trackUIInteraction('scan_document', 'upload_screen');
+    
+    try {
+      addBreadcrumb('Starting professional document scan', 'scanning');
+      
+      // Check if scanner is available
+      const isAvailable = await documentScannerService.isAvailable();
+      if (!isAvailable) {
+        Alert.alert(
+          'Scanner Not Available',
+          'The document scanner is not available on this device. Please use the camera option instead.',
+          [{ text: 'OK' }]
+        );
+        completeOperation(operationId, false, { reason: 'scanner_not_available' });
+        return;
+      }
+      
+      // Launch the professional scanner
+      const scanResult = await documentScannerService.scanSinglePage();
+      
+      if (scanResult && scanResult.scannedImages.length > 0) {
+        completeOperation(operationId, true, { pageCount: scanResult.pageCount });
+        
+        const firstImage = scanResult.scannedImages[0];
+        
+        // Start file processing operation
+        const fileProcessingId = startOperation('file_upload', 'upload', { fileType: 'scanned_image' });
+        
+        // Create file info for validation
+        const fileInfo: FileInfo = {
+          name: `${scanResult.documentName}.jpg`,
+          size: scanResult.metadata.fileSize || 0,
+          type: 'image/jpeg',
+          uri: firstImage,
+          lastModified: Date.now(),
+        };
+        
+        // Validate file before processing
+        const isValid = await validateSelectedFile(fileInfo);
+        if (!isValid) {
+          completeOperation(fileProcessingId, false, { reason: 'validation_failed' });
+          return;
+        }
+        
+        setSelectedFile({
+          uri: firstImage,
+          type: 'image',
+          name: `${scanResult.documentName}.jpg`,
+          size: scanResult.metadata.fileSize
+        });
+        
+        await processWithAI(firstImage, 'image', true); // Pass true for scanned document
+        completeOperation(fileProcessingId, true, { 
+          fileSize: scanResult.metadata.fileSize,
+          scanTime: scanResult.totalScanTime,
+          confidence: scanResult.averageConfidence
+        });
+        
+        addBreadcrumb(`Document scan completed successfully: ${scanResult.documentName}`, 'scanning');
+      } else {
+        completeOperation(operationId, false, { reason: 'scan_canceled' });
+        addBreadcrumb('Document scan was canceled by user', 'scanning');
+      }
+      
+    } catch (error) {
+      console.error('Error scanning document:', error);
+      captureError(error as Error, {
+        tags: { operation: 'scan_document', screen: 'upload' },
+      });
+      Alert.alert('Scan Error', 'Failed to scan document. Please try again.');
+      completeOperation(operationId, false, { reason: 'scan_error' });
+    }
+  }, [validateSelectedFile]);
+
+  const processWithAI = useCallback(async (uri: string, type: 'image' | 'pdf', isScannedDocument: boolean = false) => {
     const operationId = startOperation('ai_metadata_generation', 'ai', { model: 'enhanced_metadata' });
     setProcessingAI(true);
     
@@ -297,7 +373,7 @@ export default function UploadScreen() {
       addBreadcrumb(`Starting AI processing for ${type} file`, 'ai_processing');
       
       // Use the enhanced metadata generation with OCR
-      const result = await generateEnhancedMetadata(uri, type);
+      const result = await generateEnhancedMetadata(uri, type, undefined, isScannedDocument);
       
       const generatedMetadata = {
         title: result.title,
@@ -345,6 +421,15 @@ export default function UploadScreen() {
   // Memoized upload options for performance - moved after function definitions
   const uploadOptions = useMemo(() => [
     {
+      id: 'scan',
+      title: 'Scan Document',
+      icon: Camera,
+      color: theme.colors.primary,
+      onPress: scanDocument,
+      accessibilityLabel: 'Scan document button',
+      accessibilityHint: 'Launch professional document scanner with edge detection and perspective correction',
+    },
+    {
       id: 'camera',
       title: 'Take Photo',
       icon: Camera,
@@ -371,7 +456,7 @@ export default function UploadScreen() {
       accessibilityLabel: 'Upload PDF button',
       accessibilityHint: 'Select a PDF document from your files',
     },
-  ], [theme.colors, takePhoto, pickImage, pickDocument]);
+  ], [theme.colors, scanDocument, takePhoto, pickImage, pickDocument]);
 
   const handleSave = useCallback(async () => {
     if (!selectedFile || !metadata) return;
@@ -497,7 +582,8 @@ export default function UploadScreen() {
                 {option.title}
               </RevolutText>
               <RevolutText variant="body2" color={theme.colors.textSecondary}>
-                {option.id === 'camera' ? 'Capture documents with your camera' :
+                {option.id === 'scan' ? 'Professional scanning with edge detection' :
+                 option.id === 'camera' ? 'Capture documents with your camera' :
                  option.id === 'upload' ? 'Select from your photo library' :
                  'Choose PDF files from your device'}
               </RevolutText>

@@ -212,6 +212,34 @@ export class OCRService {
   }
 
   /**
+   * Recognize text from professionally scanned documents with enhanced preprocessing
+   * Optimized for high-quality, perspective-corrected documents
+   */
+  async recognizeTextFromScannedDocument(
+    imageUri: string,
+    options: OCRProcessingOptions = {}
+  ): Promise<OCRResult> {
+    const scannedDocumentOptions: OCRProcessingOptions = {
+      language: 'en',
+      recognitionLevel: 'accurate',
+      minimumConfidence: 0.8, // Higher confidence for scanned docs
+      imagePreprocessing: {
+        autoRotate: false, // Scanner already handles rotation
+        enhanceContrast: true,
+        denoiseImage: true, // More aggressive denoising for scanned docs
+      },
+      ...options
+    };
+
+    if (this.debugMode) {
+      console.log('OCRService: Processing professionally scanned document');
+      console.log('OCRService: Using enhanced preprocessing for scanned document');
+    }
+
+    return this.recognizeText(imageUri, scannedDocumentOptions);
+  }
+
+  /**
    * Recognize text from image using the best available OCR engine
    * Follows clean architecture with clear separation of concerns
    */
