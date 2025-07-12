@@ -95,14 +95,16 @@ export default function UploadScreen() {
   }, []);
 
   const pickImage = useCallback(async () => {
-    const operationId = trackUIInteraction('pick_image', 'upload_screen');
+    const operationId = trackUIInteraction('pick_image_button', 'upload_screen');
     
     try {
+      // Complete UI interaction immediately after button press
+      completeOperation(operationId, true, { action: 'button_pressed' });
+      
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
       if (!permissionResult.granted) {
         Alert.alert('Permission required', 'Photo library access is needed to upload images');
-        completeOperation(operationId, false, { reason: 'permission_denied' });
         return;
       }
 
@@ -112,10 +114,7 @@ export default function UploadScreen() {
         quality: 0.8,
       });
 
-      // Complete UI interaction here - user has made their selection
       if (!result.canceled && result.assets[0]) {
-        completeOperation(operationId, true, { action: 'image_selected' });
-        
         const asset = result.assets[0];
         
         // Start file processing operation separately
@@ -146,8 +145,6 @@ export default function UploadScreen() {
         
         await processWithAI(asset.uri, 'image');
         completeOperation(fileProcessingId, true, { fileSize: asset.fileSize });
-      } else {
-        completeOperation(operationId, false, { reason: 'user_canceled' });
       }
     } catch (error) {
       console.error('Error picking image:', error);
@@ -155,7 +152,6 @@ export default function UploadScreen() {
         tags: { operation: 'pick_image', screen: 'upload' },
       });
       Alert.alert('Error', 'Failed to pick image');
-      completeOperation(operationId, false, { reason: 'error' });
     }
   }, [validateSelectedFile]);
 

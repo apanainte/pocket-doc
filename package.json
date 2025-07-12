@@ -25,6 +25,7 @@
     "verify:phase1": "node scripts/verify_phase1.js",
     "test:startup": "node scripts/test_startup.js",
     "setup:ocr": "node scripts/setup_ocr.js",
+    "test:ocr-integration": "node scripts/test_ocr_integration.js",
     "clean": "rm -rf node_modules package-lock.json && npm install",
     "clean:cache": "expo start --clear"
   },

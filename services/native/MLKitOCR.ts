@@ -8,6 +8,7 @@ let MlkitOcr: any = null;
 // Try to import the library, handle gracefully if not available
 try {
   MlkitOcr = require('react-native-mlkit-ocr').default;
+  console.log('MLKitOCR: Library imported successfully');
 } catch (error) {
   console.warn('MLKit OCR library not available, using intelligent fallback');
 }
@@ -15,6 +16,7 @@ try {
 export class MLKitOCR {
   private isModelReady = false;
   private useRealOCR = false;
+  private initializationError: Error | null = null;
 
   async initialize(): Promise<void> {
     try {
@@ -23,11 +25,22 @@ export class MLKitOCR {
       // Check if we can use real ML Kit OCR
       if (MlkitOcr && (Platform.OS === 'android' || Platform.OS === 'ios')) {
         try {
+          console.log('MLKitOCR: Testing real ML Kit OCR capability...');
+          
+          // Create a simple test image (1x1 white pixel) to test the library
+          const testImageBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+          const testImageUri = `data:image/png;base64,${testImageBase64}`;
+          
           // Test if ML Kit is available and working
+          const testResult = await MlkitOcr.detectFromUri(testImageUri);
+          console.log('MLKitOCR: Test result:', testResult);
+          
           this.useRealOCR = true;
-          console.log('MLKitOCR: Successfully initialized with real ML Kit OCR');
+          console.log('MLKitOCR: ✅ Successfully initialized with real ML Kit OCR');
+          
         } catch (error) {
-          console.warn('MLKitOCR: Real ML Kit failed, using intelligent fallback:', error);
+          console.warn('MLKitOCR: ❌ Real ML Kit failed, using intelligent fallback:', error);
+          this.initializationError = error as Error;
           this.useRealOCR = false;
         }
       } else {
@@ -39,13 +52,52 @@ export class MLKitOCR {
       console.log(`MLKitOCR: Initialized successfully (useRealOCR: ${this.useRealOCR})`);
     } catch (error) {
       console.error('MLKitOCR: Initialization failed:', error);
+      this.initializationError = error as Error;
       this.isModelReady = true; // Set to true to allow fallback processing
       this.useRealOCR = false;
     }
   }
 
+  async testOCRCapability(): Promise<void> {
+    console.log('=== MLKitOCR Debug Test ===');
+    console.log('Platform:', Platform.OS);
+    console.log('MlkitOcr available:', !!MlkitOcr);
+    console.log('useRealOCR:', this.useRealOCR);
+    console.log('isModelReady:', this.isModelReady);
+    
+    if (this.initializationError) {
+      console.log('Initialization error:', this.initializationError.message);
+    }
+    
+    if (MlkitOcr) {
+      try {
+        const testImageBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+        const testImageUri = `data:image/png;base64,${testImageBase64}`;
+        const testResult = await MlkitOcr.detectFromUri(testImageUri);
+        console.log('Test OCR result:', testResult);
+      } catch (error) {
+        console.error('Test OCR failed:', error);
+      }
+    }
+  }
+
   async isSupported(): Promise<boolean> {
-    return this.isModelReady;
+    return this.useRealOCR;
+  }
+
+  async getAvailableLanguages(): Promise<string[]> {
+    if (this.useRealOCR) {
+      return ['en', 'es', 'fr', 'de', 'it', 'pt', 'zh', 'ja', 'ko', 'ru', 'ar', 'hi'];
+    }
+    return ['en'];
+  }
+
+  async downloadLanguageModel(languageCode: string): Promise<boolean> {
+    if (this.useRealOCR) {
+      console.log(`MLKitOCR: Language model for ${languageCode} is managed by ML Kit`);
+      return true;
+    }
+    return false;
   }
 
   async recognizeText(imageUri: string, options: OCRProcessingOptions = {}): Promise<OCRResult> {
@@ -85,21 +137,7 @@ export class MLKitOCR {
       await this.initialize();
     }
 
-    throw new Error('Camera OCR not yet implemented for MLKit');
-  }
-
-  async getAvailableLanguages(): Promise<string[]> {
-    // ML Kit supports many languages by default
-    return [
-      'en', 'es', 'fr', 'de', 'it', 'pt', 'ru', 'ja', 'ko', 'zh', 
-      'ar', 'hi', 'th', 'vi', 'nl', 'sv', 'da', 'no', 'fi', 'pl'
-    ];
-  }
-
-  async downloadLanguageModel(languageCode: string): Promise<boolean> {
-    // ML Kit downloads models automatically when needed
-    console.log(`MLKitOCR: Language model for ${languageCode} will be downloaded automatically when needed`);
-    return true;
+    throw new Error('Camera OCR not yet implemented for ML Kit');
   }
 
   private async performRealMLKitOCR(imageUri: string, options: OCRProcessingOptions): Promise<Omit<OCRResult, 'processingTime'>> {
@@ -111,7 +149,8 @@ export class MLKitOCR {
       
       console.log('MLKitOCR: Real OCR result:', {
         textLength: result?.length || 0,
-        blocks: result?.length || 0
+        blocks: result?.length || 0,
+        rawResult: result
       });
 
       if (!result || result.length === 0) {
@@ -159,7 +198,8 @@ export class MLKitOCR {
       const totalConfidence = blocks.reduce((sum, block) => sum + block.confidence, 0);
       const averageConfidence = blocks.length > 0 ? totalConfidence / blocks.length : 0;
 
-      console.log(`MLKitOCR: Real OCR extracted ${fullText.length} characters with confidence ${averageConfidence}`);
+      console.log(`MLKitOCR: ✅ Real OCR extracted ${fullText.length} characters with confidence ${averageConfidence.toFixed(2)}`);
+      console.log(`MLKitOCR: Extracted text: "${fullText.substring(0, 100)}${fullText.length > 100 ? '...' : ''}"`);
 
       return {
         text: fullText,
@@ -169,7 +209,7 @@ export class MLKitOCR {
       };
 
     } catch (error) {
-      console.error('MLKitOCR: Real ML Kit OCR failed:', error);
+      console.error('MLKitOCR: Real OCR processing failed:', error);
       throw error;
     }
   }
@@ -181,7 +221,7 @@ export class MLKitOCR {
       // Get image information for analysis
       const imageInfo = await FileSystem.getInfoAsync(imageUri);
       console.log('MLKitOCR: Image info:', {
-        size: imageInfo.size,
+        size: imageInfo.exists && !imageInfo.isDirectory ? (imageInfo as any).size : 'unknown',
         exists: imageInfo.exists,
         uri: imageUri.substring(0, 50) + '...'
       });

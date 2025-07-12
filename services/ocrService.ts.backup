@@ -2,12 +2,12 @@
  * OCR Service - Optical Character Recognition
  * 
  * This service provides text recognition capabilities for different platforms:
- * - iOS: Uses ML Kit OCR (primary) with VisionKit fallback
- * - Android: Uses ML Kit OCR for text recognition
+ * - iOS: Uses VisionKit framework for native OCR
+ * - Android: Uses ML Kit for text recognition
  * - Web: Uses simulation for development
  * 
  * The service follows a singleton pattern to ensure consistent state
- * across the application and implements clean architecture principles.
+ * across the application.
  */
 
 import { Platform, Alert } from 'react-native';
@@ -18,17 +18,8 @@ import { VisionKitOCR } from './native/VisionKitOCR';
 import { MLKitOCR } from './native/MLKitOCR';
 
 /**
- * OCR Engine priority configuration
- */
-interface OCREngineConfig {
-  primary: 'mlkit' | 'visionkit';
-  fallback?: 'mlkit' | 'visionkit';
-  enableDebugLogs: boolean;
-}
-
-/**
  * Main OCR Service class
- * Handles text recognition across different platforms using clean architecture
+ * Handles text recognition across different platforms
  */
 export class OCRService {
   private static instance: OCRService;
@@ -37,7 +28,6 @@ export class OCRService {
   private isInitialized = false;
   private initializationError: Error | null = null;
   private debugMode = false;
-  private engineConfig: OCREngineConfig;
 
   /**
    * Private constructor to enforce singleton pattern
@@ -45,13 +35,6 @@ export class OCRService {
   private constructor() {
     // Singleton pattern - prevents direct instantiation
     this.debugMode = __DEV__ || false;
-    
-    // Configure OCR engines - MLKit is primary for both platforms
-    this.engineConfig = {
-      primary: 'mlkit',
-      fallback: Platform.OS === 'ios' ? 'visionkit' : undefined,
-      enableDebugLogs: this.debugMode
-    };
   }
 
   /**
@@ -70,7 +53,6 @@ export class OCRService {
    */
   enableDebugMode(): void {
     this.debugMode = true;
-    this.engineConfig.enableDebugLogs = true;
     console.log('OCRService: Debug mode enabled');
   }
 
@@ -79,7 +61,6 @@ export class OCRService {
    */
   disableDebugMode(): void {
     this.debugMode = false;
-    this.engineConfig.enableDebugLogs = false;
     console.log('OCRService: Debug mode disabled');
   }
 
@@ -91,33 +72,31 @@ export class OCRService {
     console.log('Platform:', Platform.OS);
     console.log('Debug mode:', this.debugMode);
     console.log('Initialized:', this.isInitialized);
-    console.log('Engine config:', this.engineConfig);
     
     if (this.initializationError) {
       console.log('Service initialization error:', this.initializationError.message);
     }
 
-    // Test MLKit OCR (primary engine)
-    if (this.mlKitOCR) {
-      console.log('\n--- Testing ML Kit OCR (Primary) ---');
-      try {
-        await this.mlKitOCR.testOCRCapability();
-        const isSupported = await this.mlKitOCR.isSupported();
-        console.log('ML Kit supported:', isSupported);
-      } catch (error) {
-        console.error('ML Kit test failed:', error);
-      }
-    }
-
-    // Test VisionKit OCR (fallback for iOS)
+    // Test platform-specific OCR
     if (Platform.OS === 'ios' && this.visionKitOCR) {
-      console.log('\n--- Testing VisionKit OCR (Fallback) ---');
+      console.log('\n--- Testing VisionKit OCR ---');
       try {
         await this.visionKitOCR.testOCRCapability();
         const isSupported = await this.visionKitOCR.isSupported();
         console.log('VisionKit supported:', isSupported);
       } catch (error) {
         console.error('VisionKit test failed:', error);
+      }
+    }
+
+    if (Platform.OS === 'android' && this.mlKitOCR) {
+      console.log('\n--- Testing ML Kit OCR ---');
+      try {
+        await this.mlKitOCR.testOCRCapability();
+        const isSupported = await this.mlKitOCR.isSupported();
+        console.log('ML Kit supported:', isSupported);
+      } catch (error) {
+        console.error('ML Kit test failed:', error);
       }
     }
 
@@ -137,33 +116,16 @@ export class OCRService {
     try {
       if (this.isInitialized) return;
 
-      console.log('OCRService: Initializing with clean architecture...');
-      console.log(`OCRService: Platform: ${Platform.OS}, Primary engine: ${this.engineConfig.primary}`);
+      console.log('OCRService: Initializing...');
 
-      // Initialize MLKitOCR as primary engine for both iOS and Android
-      if (Platform.OS === 'ios' || Platform.OS === 'android') {
-        try {
-          console.log('OCRService: Initializing MLKit OCR (Primary Engine)...');
-          this.mlKitOCR = new MLKitOCR();
-          await this.mlKitOCR.initialize();
-          console.log(`OCRService: ✅ ML Kit initialized successfully for ${Platform.OS}`);
-        } catch (error) {
-          console.error('OCRService: ❌ MLKit initialization failed:', error);
-          this.initializationError = error as Error;
-        }
-        
-        // Initialize VisionKit as fallback for iOS only
-        if (Platform.OS === 'ios' && this.engineConfig.fallback === 'visionkit') {
-          try {
-            console.log('OCRService: Initializing VisionKit OCR (Fallback Engine)...');
-            this.visionKitOCR = new VisionKitOCR();
-            await this.visionKitOCR.initialize();
-            console.log('OCRService: ✅ VisionKit fallback initialized');
-          } catch (error) {
-            console.warn('OCRService: ⚠️ VisionKit fallback initialization failed:', error);
-            // Don't set initializationError for fallback failure
-          }
-        }
+      if (Platform.OS === 'ios') {
+        this.visionKitOCR = new VisionKitOCR();
+        await this.visionKitOCR.initialize();
+        console.log('OCRService: VisionKit initialized');
+      } else if (Platform.OS === 'android') {
+        this.mlKitOCR = new MLKitOCR();
+        await this.mlKitOCR.initialize();
+        console.log('OCRService: ML Kit initialized');
       } else {
         // Web fallback - disable OCR but don't throw error
         console.log('OCRService: Web platform detected, OCR capabilities limited');
@@ -177,7 +139,7 @@ export class OCRService {
         await this.testOCRCapabilities();
       }
     } catch (error) {
-      console.error('OCRService: ❌ Critical initialization failed:', error);
+      console.error('OCRService: ❌ Initialization failed:', error);
       this.initializationError = error as Error;
       // Don't throw error - gracefully fallback to mock metadata
       this.isInitialized = true;
@@ -191,19 +153,11 @@ export class OCRService {
         await this.initialize();
       }
 
-      // Check primary engine (MLKit) first
-      if (this.mlKitOCR) {
-        const mlkitSupported = await this.mlKitOCR.isSupported();
-        if (mlkitSupported) {
-          return true;
-        }
+      if (Platform.OS === 'ios') {
+        return this.visionKitOCR?.isSupported() ?? false;
+      } else if (Platform.OS === 'android') {
+        return this.mlKitOCR?.isSupported() ?? false;
       }
-
-      // Check fallback engine (VisionKit for iOS)
-      if (Platform.OS === 'ios' && this.visionKitOCR) {
-        return this.visionKitOCR.isSupported() ?? false;
-      }
-      
       return false;
     } catch (error) {
       console.error('OCRService: Error checking OCR support:', error);
@@ -211,10 +165,6 @@ export class OCRService {
     }
   }
 
-  /**
-   * Recognize text from image using the best available OCR engine
-   * Follows clean architecture with clear separation of concerns
-   */
   async recognizeText(
     imageUri: string,
     options: OCRProcessingOptions = {}
@@ -237,49 +187,21 @@ export class OCRService {
 
     try {
       if (this.debugMode) {
-        console.log('OCRService: Starting text recognition with enhanced engine selection');
-        console.log('OCRService: Options:', defaultOptions);
+        console.log('OCRService: Starting text recognition with options:', defaultOptions);
         console.log('OCRService: Image URI:', imageUri.substring(0, 50) + '...');
       }
 
       const startTime = Date.now();
-      let result: OCRResult;
-      let engineUsed = 'unknown';
 
-      // Primary: Try MLKit OCR first (works on both iOS and Android)
-      if (this.mlKitOCR) {
-        try {
-          console.log(`OCRService: 🚀 Using MLKit OCR (Primary) for ${Platform.OS}`);
-          result = await this.mlKitOCR.recognizeText(imageUri, defaultOptions);
-          engineUsed = 'mlkit-primary';
-          
-          // Validate result quality
-          if (result.text && result.text.trim().length > 0 && result.confidence > 0.3) {
-            console.log(`OCRService: ✅ MLKit OCR succeeded with confidence ${result.confidence.toFixed(2)}`);
-          } else {
-            throw new Error(`Low quality result: text length ${result.text?.length}, confidence ${result.confidence}`);
-          }
-        } catch (error) {
-          console.warn(`OCRService: ⚠️ MLKit OCR failed for ${Platform.OS}:`, error);
-          
-          // Fallback to VisionKit for iOS only
-          if (Platform.OS === 'ios' && this.visionKitOCR) {
-            console.log('OCRService: 🔄 Falling back to VisionKit OCR for iOS');
-            result = await this.visionKitOCR.recognizeText(imageUri, defaultOptions);
-            engineUsed = 'visionkit-fallback';
-          } else {
-            throw error; // Re-throw if no fallback available
-          }
-        }
-      } else if (Platform.OS === 'ios' && this.visionKitOCR) {
-        // Fallback: VisionKit for iOS if MLKit is not available
-        console.log('OCRService: 🔄 Using VisionKit OCR (MLKit not available)');
+      let result: OCRResult;
+      if (Platform.OS === 'ios' && this.visionKitOCR) {
         result = await this.visionKitOCR.recognizeText(imageUri, defaultOptions);
-        engineUsed = 'visionkit-only';
+      } else if (Platform.OS === 'android' && this.mlKitOCR) {
+        result = await this.mlKitOCR.recognizeText(imageUri, defaultOptions);
       } else {
         throw new OCRError({
           code: 'DEVICE_NOT_SUPPORTED',
-          message: 'No OCR engines available on this platform'
+          message: 'OCR not available on this platform'
         });
       }
 
@@ -293,7 +215,6 @@ export class OCRService {
 
       if (this.debugMode) {
         console.log('OCRService: ✅ Recognition completed successfully');
-        console.log(`OCRService: Engine used: ${engineUsed}`);
         console.log(`OCRService: Processing time: ${processingTime}ms`);
         console.log(`OCRService: Text length: ${finalResult.text.length} characters`);
         console.log(`OCRService: Confidence: ${(finalResult.confidence * 100).toFixed(1)}%`);
@@ -304,7 +225,7 @@ export class OCRService {
       return finalResult;
 
     } catch (error) {
-      console.error('OCRService: ❌ All OCR engines failed:', error);
+      console.error('OCRService: ❌ Recognition failed:', error);
       
       if (error instanceof OCRError) {
         throw error;
@@ -312,7 +233,7 @@ export class OCRService {
       
       throw new OCRError({
         code: 'PROCESSING_FAILED',
-        message: 'Failed to recognize text from image using all available engines',
+        message: 'Failed to recognize text from image',
         originalError: error as Error
       });
     }
@@ -326,11 +247,10 @@ export class OCRService {
         console.log('OCRService: Starting camera text recognition');
       }
 
-      // Prioritize MLKit for camera OCR
-      if (this.mlKitOCR) {
-        return await this.mlKitOCR.recognizeFromCamera(options);
-      } else if (Platform.OS === 'ios' && this.visionKitOCR) {
+      if (Platform.OS === 'ios' && this.visionKitOCR) {
         return await this.visionKitOCR.recognizeFromCamera(options);
+      } else if (Platform.OS === 'android' && this.mlKitOCR) {
+        return await this.mlKitOCR.recognizeFromCamera(options);
       } else {
         throw new OCRError({
           code: 'DEVICE_NOT_SUPPORTED',
@@ -348,20 +268,16 @@ export class OCRService {
   }
 
   private postProcessText(text: string): string {
-    // Enhanced text post-processing following clean architecture
+    // Enhanced text post-processing
     const cleanedText = text
       .replace(/\s+/g, ' ') // Normalize whitespace
       .replace(/([.!?])\s*([A-Z])/g, '$1 $2') // Fix sentence spacing
       .replace(/([a-z])([A-Z])/g, '$1 $2') // Fix missing spaces between words
       .replace(/([0-9])\s*([A-Z])/g, '$1 $2') // Fix number-letter spacing
-      .replace(/[^\w\s.,!?;:()[\]{}"'-]/g, '') // Remove scanning artifacts
       .trim();
 
     if (this.debugMode) {
       console.log('OCRService: Post-processed text:', cleanedText !== text ? 'Yes' : 'No');
-      if (cleanedText !== text) {
-        console.log('OCRService: Original length:', text.length, '→ Cleaned length:', cleanedText.length);
-      }
     }
 
     return cleanedText;
@@ -369,11 +285,10 @@ export class OCRService {
 
   async getAvailableLanguages(): Promise<string[]> {
     try {
-      // Prioritize MLKit languages
-      if (this.mlKitOCR) {
-        return await this.mlKitOCR.getAvailableLanguages();
-      } else if (Platform.OS === 'ios' && this.visionKitOCR) {
+      if (Platform.OS === 'ios' && this.visionKitOCR) {
         return await this.visionKitOCR.getAvailableLanguages();
+      } else if (Platform.OS === 'android' && this.mlKitOCR) {
+        return await this.mlKitOCR.getAvailableLanguages();
       }
       return ['en']; // Default to English
     } catch (error) {
@@ -388,12 +303,10 @@ export class OCRService {
         console.log(`OCRService: Downloading language model for ${languageCode}`);
       }
 
-      // Try MLKit first
-      if (this.mlKitOCR) {
+      if (Platform.OS === 'android' && this.mlKitOCR) {
         return await this.mlKitOCR.downloadLanguageModel(languageCode);
       }
-      
-      // VisionKit uses system-wide language models (no download needed)
+      // iOS VisionKit uses system-wide language models
       return true;
     } catch (error) {
       console.error('OCRService: Failed to download language model:', error);
@@ -409,7 +322,6 @@ export class OCRService {
     success: boolean;
     text: string;
     confidence: number;
-    engineUsed: string;
     error?: string;
     diagnostics: any;
   }> {
@@ -439,7 +351,6 @@ export class OCRService {
         success: true,
         text: result.text,
         confidence: result.confidence,
-        engineUsed: this.mlKitOCR ? 'mlkit' : 'visionkit',
         diagnostics
       };
       
@@ -451,7 +362,6 @@ export class OCRService {
         success: false,
         text: '',
         confidence: 0,
-        engineUsed: 'none',
         error: error instanceof Error ? error.message : 'Unknown error',
         diagnostics
       };
@@ -469,7 +379,6 @@ export class OCRService {
       blocks: number;
       processingTime: number;
       textPreview: string;
-      engineUsed: string;
     } | null;
     error?: string;
     suggestions: string[];
@@ -483,7 +392,6 @@ export class OCRService {
       });
       
       const suggestions: string[] = [];
-      const engineUsed = this.mlKitOCR ? 'mlkit' : 'visionkit';
       
       // Generate suggestions based on results
       if (result.confidence < 0.5) {
@@ -501,18 +409,13 @@ export class OCRService {
       if (result.processingTime > 5000) {
         suggestions.push('Long processing time detected - consider using a smaller image');
       }
-
-      if (engineUsed === 'visionkit') {
-        suggestions.push('VisionKit fallback was used - MLKit may not be properly configured');
-      }
       
       console.log('✅ Real image OCR test completed');
       console.log('📊 Results:', {
         textLength: result.text.length,
         confidence: result.confidence,
         blocks: result.blocks.length,
-        processingTime: result.processingTime,
-        engineUsed
+        processingTime: result.processingTime
       });
       
       return {
@@ -522,8 +425,7 @@ export class OCRService {
           confidence: result.confidence,
           blocks: result.blocks.length,
           processingTime: result.processingTime,
-          textPreview: result.text.substring(0, 100) + (result.text.length > 100 ? '...' : ''),
-          engineUsed
+          textPreview: result.text.substring(0, 100) + (result.text.length > 100 ? '...' : '')
         },
         suggestions
       };
@@ -535,8 +437,7 @@ export class OCRService {
         'Check if the image file exists and is accessible',
         'Ensure the image is a valid format (PNG, JPEG)',
         'Try with a different image',
-        'Check console logs for detailed error information',
-        'Verify OCR engines are properly initialized'
+        'Check console logs for detailed error information'
       ];
       
       return {
@@ -556,9 +457,6 @@ export class OCRService {
     initialized: boolean;
     supported: boolean;
     availableLanguages: string[];
-    engineConfig: OCREngineConfig;
-    mlkitAvailable: boolean;
-    visionkitAvailable: boolean;
     error: string | null;
     debugMode: boolean;
   }> {
@@ -568,9 +466,6 @@ export class OCRService {
         initialized: this.isInitialized,
         supported: await this.isSupported(),
         availableLanguages: await this.getAvailableLanguages(),
-        engineConfig: this.engineConfig,
-        mlkitAvailable: !!this.mlKitOCR,
-        visionkitAvailable: !!this.visionKitOCR,
         error: this.initializationError?.message || null,
         debugMode: this.debugMode
       };
@@ -580,9 +475,6 @@ export class OCRService {
         initialized: this.isInitialized,
         supported: false,
         availableLanguages: [],
-        engineConfig: this.engineConfig,
-        mlkitAvailable: !!this.mlKitOCR,
-        visionkitAvailable: !!this.visionKitOCR,
         error: error instanceof Error ? error.message : 'Unknown error',
         debugMode: this.debugMode
       };
@@ -591,4 +483,4 @@ export class OCRService {
 }
 
 // Export singleton instance
-export const ocrService = OCRService.getInstance();
+export const ocrService = OCRService.getInstance(); 

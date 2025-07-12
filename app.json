@@ -24,12 +24,17 @@
       "bundleIdentifier": "com.pocketdoc.app",
       "buildNumber": "1",
       "infoPlist": {
-        "NSCameraUsageDescription": "Pocket Doc needs camera access to capture document photos for your personal document library. All processing is done locally on your device.",
-        "NSPhotoLibraryUsageDescription": "Pocket Doc needs photo library access to select and upload images as documents. No data is shared externally.",
+        "NSCameraUsageDescription": "Pocket Doc needs camera access to capture document photos for your personal document library. All processing is done locally on your device for maximum privacy.",
+        "NSPhotoLibraryUsageDescription": "Pocket Doc needs photo library access to select and upload images as documents. No data is shared externally - everything stays on your device.",
         "NSFaceIDUsageDescription": "Pocket Doc uses Face ID to securely authenticate and protect access to your personal documents stored locally on your device.",
         "CFBundleDisplayName": "Pocket Doc",
-        "ITSAppUsesNonExemptEncryption": false
-      }
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": false,
+          "NSExceptionDomains": {}
+        }
+      },
+      "deploymentTarget": "13.0"
     },
     "android": {
       "package": "com.pocketdoc.app",
@@ -45,7 +50,10 @@
         "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT",
         "android.permission.RECORD_AUDIO"
-      ]
+      ],
+      "compileSdkVersion": 34,
+      "targetSdkVersion": 34,
+      "minSdkVersion": 21
     },
     "web": {
       "bundler": "metro",
@@ -56,10 +64,32 @@
       "expo-router",
       "expo-font",
       "expo-web-browser",
-      "expo-image-picker",
-      "expo-document-picker",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Pocket Doc needs access to your photos to upload documents from your photo library. All processing is done locally on your device.",
+          "cameraPermission": "Pocket Doc needs camera access to capture document photos for your personal document library. All processing is done locally on your device."
+        }
+      ],
+      [
+        "expo-document-picker",
+        {
+          "iCloudContainerEnvironment": "Production"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Pocket Doc needs camera access to capture document photos with enhanced OCR text recognition. All processing is done locally on your device for maximum privacy."
+        }
+      ],
       "expo-sqlite",
-      "expo-local-authentication",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Pocket Doc uses Face ID to securely authenticate and protect access to your personal documents stored locally on your device."
+        }
+      ],
       "expo-secure-store"
     ],
     "experiments": {
@@ -70,7 +100,13 @@
       "eas": {
         "projectId": "241c57c1-d0e0-4b71-bcc9-db67d1ae03e0"
       },
-      "sentryDsn": "development-mode-disabled"
+      "sentryDsn": "development-mode-disabled",
+      "ocrSettings": {
+        "enableDebugMode": false,
+        "preferredLanguage": "en",
+        "minimumConfidence": 0.7,
+        "enableImagePreprocessing": true
+      }
     }
   }
 }
