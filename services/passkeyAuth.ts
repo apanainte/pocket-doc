@@ -84,7 +84,6 @@ export class PasskeyAuthService {
       // Authenticate user to create passkey
       const authResult = await LocalAuthentication.authenticateAsync({
         promptMessage: 'Create your secure passkey',
-        subtitle: 'Use your biometric to secure your document vault',
         cancelLabel: 'Cancel',
         fallbackLabel: 'Use PIN',
       });
@@ -137,7 +136,6 @@ export class PasskeyAuthService {
       // Authenticate user
       const authResult = await LocalAuthentication.authenticateAsync({
         promptMessage: 'Unlock your document vault',
-        subtitle: 'Use your biometric to access your documents',
         cancelLabel: 'Cancel',
         fallbackLabel: 'Use PIN',
       });
@@ -212,8 +210,7 @@ export class PasskeyAuthService {
     try {
       // Require authentication before deletion
       const authResult = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Delete your passkey',
-        subtitle: 'This will permanently delete your passkey and all data',
+        promptMessage: 'Delete your passkey - This will permanently delete your passkey and all data',
         cancelLabel: 'Cancel',
         fallbackLabel: 'Use PIN',
       });

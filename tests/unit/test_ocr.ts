@@ -3,8 +3,8 @@
  * Run this to verify OCR services are working correctly
  */
 
-import { ocrService } from './ocrService';
-import { textProcessingService } from './textProcessingService';
+import { ocrService } from '../../services/ocrService';
+import { textProcessingService } from '../../services/textProcessingService';
 import { Platform } from 'react-native';
 
 export async function testOCRIntegration(): Promise<void> {

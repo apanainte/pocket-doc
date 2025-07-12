@@ -21,6 +21,9 @@ import { RevolutText } from '@/components/ui/RevolutText';
 import { RevolutButton } from '@/components/ui/RevolutButton';
 import { RevolutInput } from '@/components/ui/RevolutInput';
 import { useTheme } from '@/contexts/ThemeContext';
+import { validateFile, FileInfo } from '@/services/fileValidation';
+import { trackFileUpload, trackUIInteraction, completeOperation, startOperation } from '@/services/performanceMonitoring';
+import { captureError, addBreadcrumb } from '@/services/monitoring';
 
 const { width } = Dimensions.get('window');
 
@@ -46,13 +49,60 @@ export default function UploadScreen() {
   const [editedDescription, setEditedDescription] = useState('');
   const [editedTags, setEditedTags] = useState('');
   const [processingAI, setProcessingAI] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [validationWarnings, setValidationWarnings] = useState<string[]>([]);
+
+  const validateSelectedFile = useCallback(async (fileInfo: FileInfo): Promise<boolean> => {
+    try {
+      addBreadcrumb(`Starting file validation for: ${fileInfo.name}`, 'upload');
+      
+      const validationResult = await validateFile(fileInfo);
+      
+      setValidationErrors(validationResult.errors);
+      setValidationWarnings(validationResult.warnings);
+      
+      if (!validationResult.isValid) {
+        Alert.alert(
+          'File Validation Failed',
+          `The selected file has the following issues:\n\n${validationResult.errors.join('\n')}`,
+          [{ text: 'OK', style: 'default' }]
+        );
+        return false;
+      }
+      
+      if (validationResult.warnings.length > 0) {
+        Alert.alert(
+          'File Validation Warnings',
+          `The selected file has some warnings:\n\n${validationResult.warnings.join('\n')}\n\nDo you want to continue?`,
+          [
+            { text: 'Cancel', style: 'cancel', onPress: () => {} },
+            { text: 'Continue', style: 'default', onPress: () => {} }
+          ]
+        );
+      }
+      
+      addBreadcrumb(`File validation completed successfully for: ${fileInfo.name}`, 'upload');
+      return true;
+    } catch (error) {
+      captureError(error as Error, {
+        tags: { operation: 'file_validation', screen: 'upload' },
+        extra: { fileName: fileInfo.name, fileSize: fileInfo.size },
+      });
+      
+      Alert.alert('Validation Error', 'Failed to validate file. Please try again.');
+      return false;
+    }
+  }, []);
 
   const pickImage = useCallback(async () => {
+    const operationId = trackUIInteraction('pick_image', 'upload_screen');
+    
     try {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
       if (!permissionResult.granted) {
         Alert.alert('Permission required', 'Photo library access is needed to upload images');
+        completeOperation(operationId, false, { reason: 'permission_denied' });
         return;
       }
 
@@ -62,29 +112,62 @@ export default function UploadScreen() {
         quality: 0.8,
       });
 
+      // Complete UI interaction here - user has made their selection
       if (!result.canceled && result.assets[0]) {
+        completeOperation(operationId, true, { action: 'image_selected' });
+        
         const asset = result.assets[0];
+        
+        // Start file processing operation separately
+        const fileProcessingId = startOperation('file_upload', 'upload', { fileType: 'image' });
+        
+        // Create file info for validation
+        const fileInfo: FileInfo = {
+          name: asset.fileName || 'image.jpg',
+          size: asset.fileSize || 0,
+          type: 'image/jpeg',
+          uri: asset.uri,
+          lastModified: Date.now(),
+        };
+        
+        // Validate file before processing
+        const isValid = await validateSelectedFile(fileInfo);
+        if (!isValid) {
+          completeOperation(fileProcessingId, false, { reason: 'validation_failed' });
+          return;
+        }
+        
         setSelectedFile({
           uri: asset.uri,
           type: 'image',
           name: asset.fileName || 'image.jpg',
           size: asset.fileSize
         });
+        
         await processWithAI(asset.uri, 'image');
+        completeOperation(fileProcessingId, true, { fileSize: asset.fileSize });
+      } else {
+        completeOperation(operationId, false, { reason: 'user_canceled' });
       }
     } catch (error) {
       console.error('Error picking image:', error);
+      captureError(error as Error, {
+        tags: { operation: 'pick_image', screen: 'upload' },
+      });
       Alert.alert('Error', 'Failed to pick image');
+      completeOperation(operationId, false, { reason: 'error' });
     }
-  }, []);
+  }, [validateSelectedFile]);
 
   const takePhoto = useCallback(async () => {
+    const operationId = trackUIInteraction('take_photo', 'upload_screen');
+    
     // Apple HIG: Clear permission request with context
     Alert.alert(
       'Camera Access',
       'Pocket Doc needs camera access to capture document photos for your personal library.',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Cancel', style: 'cancel', onPress: () => completeOperation(operationId, false, { reason: 'user_canceled' }) },
         { 
           text: 'Allow', 
           onPress: async () => {
@@ -93,6 +176,7 @@ export default function UploadScreen() {
               
               if (!permissionResult.granted) {
                 Alert.alert('Permission required', 'Camera permission is needed to take photos');
+                completeOperation(operationId, false, { reason: 'permission_denied' });
                 return;
               }
               
@@ -102,52 +186,120 @@ export default function UploadScreen() {
                 quality: 0.8,
               });
 
+              // Complete UI interaction here - user has taken photo
               if (!result.canceled && result.assets[0]) {
+                completeOperation(operationId, true, { action: 'photo_taken' });
+                
                 const asset = result.assets[0];
+                
+                // Start file processing operation separately
+                const fileProcessingId = startOperation('file_upload', 'upload', { fileType: 'image' });
+                
+                // Create file info for validation
+                const fileInfo: FileInfo = {
+                  name: asset.fileName || 'photo.jpg',
+                  size: asset.fileSize || 0,
+                  type: 'image/jpeg',
+                  uri: asset.uri,
+                  lastModified: Date.now(),
+                };
+                
+                // Validate file before processing
+                const isValid = await validateSelectedFile(fileInfo);
+                if (!isValid) {
+                  completeOperation(fileProcessingId, false, { reason: 'validation_failed' });
+                  return;
+                }
+                
                 setSelectedFile({
                   uri: asset.uri,
                   type: 'image',
-                  name: 'photo.jpg',
+                  name: asset.fileName || 'photo.jpg',
                   size: asset.fileSize
                 });
+                
                 await processWithAI(asset.uri, 'image');
+                completeOperation(fileProcessingId, true, { fileSize: asset.fileSize });
+              } else {
+                completeOperation(operationId, false, { reason: 'user_canceled' });
               }
             } catch (error) {
               console.error('Error taking photo:', error);
+              captureError(error as Error, {
+                tags: { operation: 'take_photo', screen: 'upload' },
+              });
               Alert.alert('Error', 'Failed to take photo');
+              completeOperation(operationId, false, { reason: 'error' });
             }
           }
         }
       ]
     );
-  }, []);
+  }, [validateSelectedFile]);
 
   const pickDocument = useCallback(async () => {
+    const operationId = trackUIInteraction('pick_document', 'upload_screen');
+    
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: 'application/pdf',
         copyToCacheDirectory: true,
       });
 
+      // Complete UI interaction here - user has selected document
       if (!result.canceled && result.assets[0]) {
+        completeOperation(operationId, true, { action: 'document_selected' });
+        
         const asset = result.assets[0];
+        
+        // Start file processing operation separately
+        const fileProcessingId = startOperation('file_upload', 'upload', { fileType: 'pdf' });
+        
+        // Create file info for validation
+        const fileInfo: FileInfo = {
+          name: asset.name,
+          size: asset.size || 0,
+          type: 'application/pdf',
+          uri: asset.uri,
+          lastModified: Date.now(),
+        };
+        
+        // Validate file before processing
+        const isValid = await validateSelectedFile(fileInfo);
+        if (!isValid) {
+          completeOperation(fileProcessingId, false, { reason: 'validation_failed' });
+          return;
+        }
+        
         setSelectedFile({
           uri: asset.uri,
           type: 'pdf',
           name: asset.name,
           size: asset.size
         });
+        
         await processWithAI(asset.uri, 'pdf');
+        completeOperation(fileProcessingId, true, { fileSize: asset.size });
+      } else {
+        completeOperation(operationId, false, { reason: 'user_canceled' });
       }
     } catch (error) {
       console.error('Error picking document:', error);
+      captureError(error as Error, {
+        tags: { operation: 'pick_document', screen: 'upload' },
+      });
       Alert.alert('Error', 'Failed to pick document');
+      completeOperation(operationId, false, { reason: 'error' });
     }
-  }, []);
+  }, [validateSelectedFile]);
 
   const processWithAI = useCallback(async (uri: string, type: 'image' | 'pdf') => {
+    const operationId = startOperation('ai_metadata_generation', 'ai', { model: 'enhanced_metadata' });
     setProcessingAI(true);
+    
     try {
+      addBreadcrumb(`Starting AI processing for ${type} file`, 'ai_processing');
+      
       // Use the enhanced metadata generation with OCR
       const result = await generateEnhancedMetadata(uri, type);
       
@@ -172,9 +324,23 @@ export default function UploadScreen() {
         } : null);
       }
       
+      completeOperation(operationId, true, {
+        textLength: result.extractedText?.length || 0,
+        confidence: result.confidence,
+        processingTime: result.processingTime,
+        fileType: type,
+      });
+      
+      addBreadcrumb(`AI processing completed successfully for ${type} file`, 'ai_processing');
+      
     } catch (error) {
       console.error('Error processing with AI:', error);
+      captureError(error as Error, {
+        tags: { operation: 'ai_processing', screen: 'upload', fileType: type },
+        extra: { fileUri: uri },
+      });
       Alert.alert('Error', 'Failed to generate metadata');
+      completeOperation(operationId, false, { reason: 'ai_processing_failed' });
     } finally {
       setProcessingAI(false);
     }
@@ -214,7 +380,15 @@ export default function UploadScreen() {
   const handleSave = useCallback(async () => {
     if (!selectedFile || !metadata) return;
 
+    const operationId = startOperation('document_save', 'database', {
+      fileType: selectedFile.type,
+      fileSize: selectedFile.size,
+      hasOCR: !!selectedFile.extractedText,
+    });
+
     try {
+      addBreadcrumb(`Starting document save for: ${selectedFile.name}`, 'document_save');
+      
       const tags = editedTags.split(',').map(tag => tag.trim()).filter(tag => tag);
       
       const newDocument: Omit<Document, 'id' | 'createdAt' | 'updatedAt'> = {
@@ -245,11 +419,29 @@ export default function UploadScreen() {
       setEditedTitle('');
       setEditedDescription('');
       setEditedTags('');
+      setValidationErrors([]);
+      setValidationWarnings([]);
       
+      completeOperation(operationId, true, {
+        documentId: newDocument.title,
+        tagsCount: tags.length,
+        extractedTextLength: selectedFile.extractedText?.length || 0,
+      });
+      
+      addBreadcrumb(`Document saved successfully: ${selectedFile.name}`, 'document_save');
       Alert.alert('Success', 'Document uploaded successfully with OCR!');
     } catch (error) {
       console.error('Error saving document:', error);
+      captureError(error as Error, {
+        tags: { operation: 'document_save', screen: 'upload' },
+        extra: { 
+          fileName: selectedFile.name,
+          fileSize: selectedFile.size,
+          fileType: selectedFile.type,
+        },
+      });
       Alert.alert('Error', 'Failed to save document');
+      completeOperation(operationId, false, { reason: 'database_error' });
     } finally {
       setIsUploading(false);
     }
@@ -262,6 +454,8 @@ export default function UploadScreen() {
     setEditedTitle('');
     setEditedDescription('');
     setEditedTags('');
+    setValidationErrors([]);
+    setValidationWarnings([]);
   }, []);
 
   const toggleEditing = useCallback(() => {

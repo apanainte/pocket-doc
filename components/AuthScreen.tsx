@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Fingerprint, Shield, Eye } from 'lucide-react-native';
 import * as LocalAuthentication from 'expo-local-authentication';
+import { useApp } from '@/contexts/AppContext';
 
 const { width, height } = Dimensions.get('window');
 

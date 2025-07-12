@@ -120,12 +120,14 @@ export async function generateEnhancedMetadata(
     // Extract text via OCR if not provided
     if (!existingText && type === 'image') {
       try {
+        console.log('generateEnhancedMetadata: Starting OCR for image:', uri);
         const ocrResult = await ocrService.recognizeText(uri, {
           recognitionLevel: 'accurate',
-          minimumConfidence: 0.6
+          minimumConfidence: 0.5  // Lower threshold to capture more results
         });
         extractedText = ocrResult.text;
         confidence = ocrResult.confidence;
+        console.log(`generateEnhancedMetadata: OCR completed. Text length: ${extractedText?.length}, confidence: ${confidence}`);
       } catch (error) {
         console.warn('OCR extraction failed:', error);
       }
@@ -134,7 +136,9 @@ export async function generateEnhancedMetadata(
     // Generate smart metadata
     let metadata: MetadataGenerationResponse;
     
-    if (extractedText && extractedText.trim().length > 10) {
+    // Use OCR results if we have meaningful text (lowered threshold)
+    if (extractedText && extractedText.trim().length > 5 && confidence > 0.5) {
+      console.log('generateEnhancedMetadata: Using OCR results for smart generation');
       // Use OCR results for smart generation
       const processedText = textProcessingService.processOCRResult({
         text: extractedText,
@@ -150,11 +154,14 @@ export async function generateEnhancedMetadata(
         tags: textProcessingService.generateSmartTags(processedText)
       };
     } else {
+      console.log('generateEnhancedMetadata: OCR text insufficient, using fallback generation');
       // Fallback to standard generation
       metadata = await generateMetadata(uri, type, false);
     }
     
     const processingTime = Date.now() - startTime;
+    
+    console.log(`generateEnhancedMetadata: Completed in ${processingTime}ms. Title: "${metadata.title}"`);
     
     return {
       ...metadata,

@@ -69,7 +69,8 @@
       "router": {},
       "eas": {
         "projectId": "241c57c1-d0e0-4b71-bcc9-db67d1ae03e0"
-      }
+      },
+      "sentryDsn": "development-mode-disabled"
     }
   }
 }

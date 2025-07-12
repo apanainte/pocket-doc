@@ -16,6 +16,11 @@ export { generateMetadata, generateEnhancedMetadata } from './aiMetadata';
 
 // Validation Services
 export { default as ValidationService } from './validation';
+export { fileValidationService, validateFile } from './fileValidation';
+
+// Monitoring Services
+export { monitoringService, initializeMonitoring, captureError, captureMessage } from './monitoring';
+export { performanceMonitoringService, startOperation, completeOperation } from './performanceMonitoring';
 
 // Authentication Services
 export { AuthService } from './auth';

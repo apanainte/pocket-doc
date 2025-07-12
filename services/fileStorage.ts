@@ -46,7 +46,7 @@ export class FileStorageService {
 
       // Get final file info
       const storedFileInfo = await FileSystem.getInfoAsync(destinationUri);
-      const fileSize = storedFileInfo.size || 0;
+      const fileSize = (storedFileInfo.exists && 'size' in storedFileInfo) ? storedFileInfo.size || 0 : 0;
 
       // Create thumbnail for images
       let thumbnailUri: string | undefined;
@@ -159,7 +159,7 @@ export class FileStorageService {
         for (const file of files) {
           const filePath = `${this.documentsDirectory}${file}`;
           const fileInfo = await FileSystem.getInfoAsync(filePath);
-          if (fileInfo.size) {
+          if (fileInfo.exists && 'size' in fileInfo && fileInfo.size) {
             usedSpace += fileInfo.size;
           }
         }

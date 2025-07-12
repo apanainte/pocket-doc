@@ -182,33 +182,49 @@ export class TextProcessingService {
 
   generateSmartTitle(processedText: ProcessedText): string {
     const { cleanedText, structuredData, metadata } = processedText;
-
-    // Business card
-    if (metadata.textType === 'business_card') {
-      const lines = cleanedText.split('\n').filter(line => line.trim());
-      return `Business Card - ${lines[0] || 'Contact'}`;
+    
+    // Get first meaningful line as title
+    const lines = cleanedText.split('\n').filter(line => line.trim().length > 2);
+    
+    if (lines.length === 0) {
+      return `${metadata.textType.charAt(0).toUpperCase()}${metadata.textType.slice(1)} Document`;
     }
-
-    // Receipt
+    
+    // For receipts, try to find store name
     if (metadata.textType === 'receipt') {
-      const lines = cleanedText.split('\n');
-      const storeName = lines.find(line => 
-        line.length > 3 && 
-        line.length < 30 && 
-        !line.includes('$') &&
-        !line.includes('total')
-      );
-      return `Receipt - ${storeName || 'Purchase'}`;
+      const firstLine = lines[0].trim();
+      if (firstLine.length > 3 && firstLine.length < 50) {
+        return `Receipt from ${firstLine}`;
+      }
+      return 'Store Receipt';
     }
-
-    // Document with first meaningful line
-    const lines = cleanedText.split('\n').filter(line => line.trim().length > 10);
-    if (lines.length > 0) {
-      return lines[0].substring(0, 50).trim() + (lines[0].length > 50 ? '...' : '');
+    
+    // For business cards, try to find name
+    if (metadata.textType === 'business_card') {
+      for (const line of lines.slice(0, 3)) {
+        // Look for name patterns (2-4 words, proper case)
+        if (/^[A-Z][a-z]+ [A-Z][a-z]+/.test(line.trim()) && line.trim().split(' ').length <= 4) {
+          return `Business Card - ${line.trim()}`;
+        }
+      }
+      return 'Business Card';
     }
-
-    // Fallback
-    return `Document - ${new Date().toLocaleDateString()}`;
+    
+    // For documents, use first meaningful line
+    const firstLine = lines[0].trim();
+    if (firstLine.length > 5 && firstLine.length < 80) {
+      // Clean up the title
+      const title = firstLine
+        .replace(/[^\w\s-]/g, '') // Remove special chars except hyphens
+        .replace(/\s+/g, ' ') // Normalize spaces
+        .trim();
+      
+      if (title.length > 3) {
+        return title;
+      }
+    }
+    
+    return `${metadata.textType.charAt(0).toUpperCase()}${metadata.textType.slice(1)} Document`;
   }
 
   generateSmartDescription(processedText: ProcessedText): string {
@@ -217,11 +233,30 @@ export class TextProcessingService {
     let description = `${metadata.textType === 'handwritten' ? 'Handwritten' : 'Typed'} ${metadata.textType} `;
     description += `with ${metadata.wordCount} words. `;
 
-    if (structuredData.emails.length > 0) {
+    // Add specific details based on text type
+    if (metadata.textType === 'receipt') {
+      // Look for total amount
+      const totalMatch = cleanedText.match(/total[:\s]*\$?(\d+\.?\d*)/i);
+      if (totalMatch) {
+        description += `Total amount: $${totalMatch[1]}. `;
+      }
+    }
+
+    if (metadata.textType === 'business_card') {
+      if (structuredData.emails.length > 0) {
+        description += `Email: ${structuredData.emails[0]}. `;
+      }
+      if (structuredData.phoneNumbers.length > 0) {
+        description += `Phone: ${structuredData.phoneNumbers[0]}. `;
+      }
+    }
+
+    // Add general structured data
+    if (structuredData.emails.length > 0 && metadata.textType !== 'business_card') {
       description += `Contains ${structuredData.emails.length} email address(es). `;
     }
 
-    if (structuredData.phoneNumbers.length > 0) {
+    if (structuredData.phoneNumbers.length > 0 && metadata.textType !== 'business_card') {
       description += `Contains ${structuredData.phoneNumbers.length} phone number(s). `;
     }
 
@@ -229,33 +264,61 @@ export class TextProcessingService {
       description += `Contains ${structuredData.dates.length} date(s). `;
     }
 
-    // Add first 100 characters as preview
-    const preview = cleanedText.substring(0, 100);
-    description += `Preview: "${preview}${cleanedText.length > 100 ? '...' : ''}"`;
+    // Add content preview for longer documents
+    if (cleanedText.length > 50) {
+      const preview = cleanedText.substring(0, 100).replace(/\s+/g, ' ').trim();
+      description += `Preview: "${preview}${cleanedText.length > 100 ? '...' : ''}"`;
+    } else {
+      description += `Content: "${cleanedText}"`;
+    }
 
     return description;
   }
 
   generateSmartTags(processedText: ProcessedText): string[] {
-    const { structuredData, metadata } = processedText;
-    const tags: string[] = [];
+    const { cleanedText, structuredData, metadata } = processedText;
+    const tags: Set<string> = new Set();
 
-    // Type-based tags
-    tags.push(metadata.textType);
-    tags.push(metadata.language);
+    // Add base tags
+    tags.add(metadata.textType);
+    tags.add(`confidence-${Math.floor(metadata.confidence * 10) / 10}`);
+    
+    // Add content-specific tags
+    if (metadata.textType === 'receipt') {
+      tags.add('financial');
+      tags.add('expense');
+      if (cleanedText.toLowerCase().includes('tax')) tags.add('tax');
+      if (cleanedText.toLowerCase().includes('grocery') || cleanedText.toLowerCase().includes('food')) tags.add('grocery');
+    }
+    
+    if (metadata.textType === 'business_card') {
+      tags.add('contact');
+      tags.add('networking');
+      if (structuredData.emails.length > 0) tags.add('email');
+      if (structuredData.phoneNumbers.length > 0) tags.add('phone');
+    }
+    
+    if (metadata.textType === 'document') {
+      tags.add('text');
+      if (cleanedText.toLowerCase().includes('meeting')) tags.add('meeting');
+      if (cleanedText.toLowerCase().includes('project')) tags.add('project');
+      if (cleanedText.toLowerCase().includes('contract')) tags.add('contract');
+      if (cleanedText.toLowerCase().includes('invoice')) tags.add('invoice');
+    }
 
-    // Content-based tags
-    if (structuredData.emails.length > 0) tags.push('contact-info');
-    if (structuredData.phoneNumbers.length > 0) tags.push('phone');
-    if (structuredData.dates.length > 0) tags.push('dated');
-    if (structuredData.urls.length > 0) tags.push('web-links');
-    if (structuredData.addresses.length > 0) tags.push('address');
+    // Add structured data tags
+    if (structuredData.emails.length > 0) tags.add('has-email');
+    if (structuredData.phoneNumbers.length > 0) tags.add('has-phone');
+    if (structuredData.dates.length > 0) tags.add('has-date');
+    if (structuredData.urls.length > 0) tags.add('has-url');
 
-    // Confidence-based tags
-    if (metadata.confidence > 0.95) tags.push('high-quality');
-    if (metadata.confidence < 0.8) tags.push('low-quality');
+    // Add language tag
+    tags.add(`lang-${metadata.language}`);
+    
+    // Add processing date
+    tags.add(`processed-${new Date().toISOString().split('T')[0]}`);
 
-    return tags;
+    return Array.from(tags);
   }
 }
 
