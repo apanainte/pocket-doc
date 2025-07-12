@@ -20,6 +20,7 @@ import { RevolutCard } from '@/components/ui/RevolutCard';
 import { RevolutText } from '@/components/ui/RevolutText';
 import { RevolutButton } from '@/components/ui/RevolutButton';
 import { RevolutInput } from '@/components/ui/RevolutInput';
+import { ExpandableText } from '@/components/ui/ExpandableText';
 import { useTheme } from '@/contexts/ThemeContext';
 import { validateFile, FileInfo } from '@/services/fileValidation';
 import { trackFileUpload, trackUIInteraction, completeOperation, startOperation } from '@/services/performanceMonitoring';
@@ -792,9 +793,12 @@ export default function UploadScreen() {
                   <RevolutText variant="label" color={theme.colors.textSecondary}>
                     DESCRIPTION
                   </RevolutText>
-                  <RevolutText variant="body1" style={{ marginTop: spacing.xs }}>
-                    {editedDescription}
-                  </RevolutText>
+                  <ExpandableText
+                    text={editedDescription}
+                    variant="body1"
+                    numberOfLines={3}
+                    style={{ marginTop: spacing.xs }}
+                  />
                 </View>
                 
                 <View style={{ marginBottom: spacing.lg }}>

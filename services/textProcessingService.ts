@@ -264,10 +264,23 @@ export class TextProcessingService {
       description += `Contains ${structuredData.dates.length} date(s). `;
     }
 
-    // Add content preview for longer documents
+    // Add full content instead of truncated preview
     if (cleanedText.length > 50) {
-      const preview = cleanedText.substring(0, 100).replace(/\s+/g, ' ').trim();
-      description += `Preview: "${preview}${cleanedText.length > 100 ? '...' : ''}"`;
+      // Calculate available space for content (keeping under 500 char limit)
+      const prefixLength = description.length;
+      const availableSpace = Math.max(200, 450 - prefixLength); // Reserve 50 chars for safety
+      
+      if (cleanedText.length <= availableSpace) {
+        description += `Content: "${cleanedText}"`;
+      } else {
+        // Smart truncation at word boundary
+        const truncated = cleanedText.substring(0, availableSpace);
+        const lastSpaceIndex = truncated.lastIndexOf(' ');
+        const smartTruncated = lastSpaceIndex > availableSpace * 0.8 
+          ? truncated.substring(0, lastSpaceIndex)
+          : truncated;
+        description += `Content: "${smartTruncated}..."`;
+      }
     } else {
       description += `Content: "${cleanedText}"`;
     }

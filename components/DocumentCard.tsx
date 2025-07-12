@@ -4,6 +4,7 @@ import { FileText, Image as ImageIcon } from 'lucide-react-native';
 import { Document } from '@/types/document';
 import { RevolutCard } from '@/components/ui/RevolutCard';
 import { RevolutText } from '@/components/ui/RevolutText';
+import { ExpandableText } from '@/components/ui/ExpandableText';
 import { useTheme } from '@/contexts/ThemeContext';
 
 const { width } = Dimensions.get('window');
@@ -133,16 +134,13 @@ export const DocumentCard = memo<DocumentCardProps>(({ document, onPress }) => {
           {document.title}
         </RevolutText>
         
-        <RevolutText 
-          variant="body2" 
-          numberOfLines={2} 
+        <ExpandableText
+          text={document.description}
+          variant="body2"
           color={theme.colors.textSecondary}
+          numberOfLines={2}
           style={{ marginBottom: spacing.sm }}
-          accessible={true}
-          accessibilityLabel={`Description: ${document.description}`}
-        >
-          {document.description}
-        </RevolutText>
+        />
         
         <View style={footerStyle}>
           <RevolutText 

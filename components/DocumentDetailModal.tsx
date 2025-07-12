@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Document } from '@/types/document';
 import { X, CreditCard as Edit2, Save, FileText, Image as ImageIcon, Trash2 } from 'lucide-react-native';
+import { ExpandableText } from '@/components/ui/ExpandableText';
 
 const { width, height } = Dimensions.get('window');
 
@@ -162,7 +163,12 @@ export function DocumentDetailModal({
                   numberOfLines={4}
                 />
               ) : (
-                <Text style={styles.value}>{document.description}</Text>
+                <ExpandableText
+                  text={document.description}
+                  variant="body1"
+                  numberOfLines={3}
+                  style={styles.expandableText}
+                />
               )}
             </View>
 
@@ -229,7 +235,7 @@ export function DocumentDetailModal({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#000000',
   },
   header: {
     flexDirection: 'row',
@@ -237,9 +243,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#1C1C1E',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
+    borderBottomColor: '#2C2C2E',
   },
   closeButton: {
     padding: 8,
@@ -247,7 +253,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 17,
     fontFamily: 'Inter-SemiBold',
-    color: '#1C1C1E',
+    color: '#FFFFFF',
   },
   actionButton: {
     padding: 8,
@@ -258,7 +264,7 @@ const styles = StyleSheet.create({
   thumbnailContainer: {
     width: '100%',
     height: 200,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#1C1C1E',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -269,19 +275,19 @@ const styles = StyleSheet.create({
   placeholderThumbnail: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#2C2C2E',
     justifyContent: 'center',
     alignItems: 'center',
   },
   form: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#1C1C1E',
     marginTop: 16,
     paddingHorizontal: 16,
   },
   fieldContainer: {
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
+    borderBottomColor: '#2C2C2E',
   },
   label: {
     fontSize: 14,
@@ -292,19 +298,19 @@ const styles = StyleSheet.create({
   value: {
     fontSize: 16,
     fontFamily: 'Inter-Regular',
-    color: '#1C1C1E',
+    color: '#FFFFFF',
     lineHeight: 22,
   },
   input: {
     fontSize: 16,
     fontFamily: 'Inter-Regular',
-    color: '#1C1C1E',
+    color: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E5E5E5',
+    borderColor: '#2C2C2E',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#2C2C2E',
   },
   multilineInput: {
     minHeight: 80,
@@ -344,14 +350,14 @@ const styles = StyleSheet.create({
   metadataValue: {
     fontSize: 14,
     fontFamily: 'Inter-Medium',
-    color: '#1C1C1E',
+    color: '#FFFFFF',
   },
   footer: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#1C1C1E',
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderTopWidth: 1,
-    borderTopColor: '#E5E5E5',
+    borderTopColor: '#2C2C2E',
   },
   deleteButton: {
     flexDirection: 'row',
@@ -368,5 +374,11 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Medium',
     color: '#FF3B30',
     marginLeft: 8,
+  },
+  expandableText: {
+    fontSize: 16,
+    fontFamily: 'Inter-Regular',
+    color: '#FFFFFF',
+    lineHeight: 22,
   },
 });
