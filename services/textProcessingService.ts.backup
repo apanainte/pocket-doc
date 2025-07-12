@@ -13,7 +13,7 @@ interface ProcessedText {
     wordCount: number;
     language: string;
     confidence: number;
-    textType: 'document' | 'receipt' | 'business_card' | 'handwritten' | 'medical_document' | 'other';
+    textType: 'document' | 'receipt' | 'business_card' | 'handwritten' | 'other';
   };
 }
 
@@ -151,30 +151,6 @@ export class TextProcessingService {
   ): ProcessedText['metadata']['textType'] {
     const lowerText = text.toLowerCase();
 
-    // Medical document indicators (Spanish + English)
-    if (lowerText.includes('hospital') || 
-        lowerText.includes('medical') || 
-        lowerText.includes('patient') ||
-        lowerText.includes('doctor') ||
-        lowerText.includes('clinic') ||
-        lowerText.includes('health') ||
-        lowerText.includes('treatment') ||
-        lowerText.includes('diagnosis') ||
-        // Spanish medical terms
-        lowerText.includes('médico') ||
-        lowerText.includes('paciente') ||
-        lowerText.includes('urgencias') ||
-        lowerText.includes('urgències') ||
-        lowerText.includes('consulta') ||
-        lowerText.includes('informe') ||
-        lowerText.includes('diagnóstic') ||
-        lowerText.includes('malaltia') ||
-        lowerText.includes('gestaci') ||
-        lowerText.includes('creu') ||        // Santa Creu
-        lowerText.includes('sant pau')) {    // Sant Pau
-      return 'medical_document';
-    }
-
     // Receipt indicators
     if (lowerText.includes('total') || 
         lowerText.includes('tax') || 
@@ -191,13 +167,13 @@ export class TextProcessingService {
       return 'business_card';
     }
 
-    // Handwritten indicators (lowered confidence threshold)
-    if (ocrResult.confidence < 0.7) {
+    // Handwritten indicators (based on confidence and character patterns)
+    if (ocrResult.confidence < 0.8) {
       return 'handwritten';
     }
 
     // Document indicators
-    if (text.length > 200 && ocrResult.confidence > 0.7) {
+    if (text.length > 200 && ocrResult.confidence > 0.9) {
       return 'document';
     }
 
@@ -254,68 +230,61 @@ export class TextProcessingService {
   generateSmartDescription(processedText: ProcessedText): string {
     const { cleanedText, structuredData, metadata } = processedText;
 
-    // Generate a proper description summary - NOT the full OCR text
-    // The OCR text is stored separately in extractedText field
-    
-    let description = '';
-    
-    // Start with document type and basic info
-    const typeLabel = metadata.textType.replace('_', ' ').toLowerCase();
-    description += `${typeLabel.charAt(0).toUpperCase()}${typeLabel.slice(1)} document`;
-    
-    // Add word count info
-    if (metadata.wordCount > 0) {
-      description += ` containing ${metadata.wordCount} words`;
-    }
-    
-    // Add confidence info
-    if (metadata.confidence < 0.9) {
-      description += ` (${Math.round(metadata.confidence * 100)}% OCR confidence)`;
-    }
-    
-    // Add specific details based on document type
-    const contextParts: string[] = [];
-    
-    if (metadata.textType === 'medical_document') {
-      contextParts.push('Medical report or healthcare document');
-    }
-    
+    let description = `${metadata.textType === 'handwritten' ? 'Handwritten' : 'Typed'} ${metadata.textType} `;
+    description += `with ${metadata.wordCount} words. `;
+
+    // Add specific details based on text type
     if (metadata.textType === 'receipt') {
+      // Look for total amount
       const totalMatch = cleanedText.match(/total[:\s]*\$?(\d+\.?\d*)/i);
       if (totalMatch) {
-        contextParts.push(`Total amount: $${totalMatch[1]}`);
+        description += `Total amount: $${totalMatch[1]}. `;
       }
     }
-    
+
     if (metadata.textType === 'business_card') {
-      contextParts.push('Contact information card');
+      if (structuredData.emails.length > 0) {
+        description += `Email: ${structuredData.emails[0]}. `;
+      }
+      if (structuredData.phoneNumbers.length > 0) {
+        description += `Phone: ${structuredData.phoneNumbers[0]}. `;
+      }
     }
-    
-    // Add structured data summary
-    if (structuredData.emails.length > 0) {
-      contextParts.push(`${structuredData.emails.length} email address${structuredData.emails.length > 1 ? 'es' : ''}`);
+
+    // Add general structured data
+    if (structuredData.emails.length > 0 && metadata.textType !== 'business_card') {
+      description += `Contains ${structuredData.emails.length} email address(es). `;
     }
-    
-    if (structuredData.phoneNumbers.length > 0) {
-      contextParts.push(`${structuredData.phoneNumbers.length} phone number${structuredData.phoneNumbers.length > 1 ? 's' : ''}`);
+
+    if (structuredData.phoneNumbers.length > 0 && metadata.textType !== 'business_card') {
+      description += `Contains ${structuredData.phoneNumbers.length} phone number(s). `;
     }
-    
+
     if (structuredData.dates.length > 0) {
-      contextParts.push(`${structuredData.dates.length} date${structuredData.dates.length > 1 ? 's' : ''}`);
+      description += `Contains ${structuredData.dates.length} date(s). `;
     }
-    
-    // Add context details
-    if (contextParts.length > 0) {
-      description += '. Contains ' + contextParts.join(', ');
+
+    // Add full content instead of truncated preview
+    if (cleanedText.length > 50) {
+      // Calculate available space for content (keeping under 500 char limit)
+      const prefixLength = description.length;
+      const availableSpace = Math.max(200, 450 - prefixLength); // Reserve 50 chars for safety
+      
+      if (cleanedText.length <= availableSpace) {
+        description += `Content: "${cleanedText}"`;
+      } else {
+        // Smart truncation at word boundary
+        const truncated = cleanedText.substring(0, availableSpace);
+        const lastSpaceIndex = truncated.lastIndexOf(' ');
+        const smartTruncated = lastSpaceIndex > availableSpace * 0.8 
+          ? truncated.substring(0, lastSpaceIndex)
+          : truncated;
+        description += `Content: "${smartTruncated}..."`;
+      }
+    } else {
+      description += `Content: "${cleanedText}"`;
     }
-    
-    // Add language info if not English
-    if (metadata.language !== 'en') {
-      description += `. Language: ${metadata.language.toUpperCase()}`;
-    }
-    
-    description += '.';
-    
+
     return description;
   }
 

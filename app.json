@@ -2,7 +2,7 @@
   "expo": {
     "name": "Pocket Doc",
     "slug": "pocket-doc",
-    "version": "1.0.1",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "pocketdoc",
@@ -22,7 +22,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.pocketdoc.app",
-      "buildNumber": "2",
+      "buildNumber": "3",
       "infoPlist": {
         "NSCameraUsageDescription": "Pocket Doc needs camera access to capture document photos for your personal document library. All processing is done locally on your device for maximum privacy.",
         "NSPhotoLibraryUsageDescription": "Pocket Doc needs photo library access to select and upload images as documents. No data is shared externally - everything stays on your device.",
@@ -38,7 +38,7 @@
     },
     "android": {
       "package": "com.pocketdoc.app",
-      "versionCode": 1,
+      "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#1E3A8A"

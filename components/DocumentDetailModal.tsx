@@ -192,6 +192,26 @@ export function DocumentDetailModal({
               )}
             </View>
 
+            {/* Display extracted OCR text if available */}
+            {document.extractedText && (
+              <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Extracted Text</Text>
+                <View style={styles.extractedTextContainer}>
+                  <ExpandableText
+                    text={document.extractedText}
+                    variant="body2"
+                    numberOfLines={4}
+                    style={styles.extractedText}
+                  />
+                  {document.ocrData?.confidence && (
+                    <Text style={styles.ocrConfidence}>
+                      OCR Confidence: {Math.round(document.ocrData.confidence * 100)}%
+                    </Text>
+                  )}
+                </View>
+              </View>
+            )}
+
             <View style={styles.metadataContainer}>
               <View style={styles.metadataRow}>
                 <Text style={styles.metadataLabel}>Created</Text>
@@ -380,5 +400,25 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     color: '#FFFFFF',
     lineHeight: 22,
+  },
+  extractedTextContainer: {
+    backgroundColor: '#2C2C2E',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#3A3A3C',
+    marginTop: 8,
+  },
+  extractedText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: 'Inter-Regular',
+  },
+  ocrConfidence: {
+    color: '#8E8E93',
+    fontSize: 12,
+    fontFamily: 'Inter-Regular',
+    marginTop: 8,
   },
 });

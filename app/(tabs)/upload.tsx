@@ -833,6 +833,39 @@ export default function UploadScreen() {
                     })}
                   </View>
                 </View>
+
+                {/* Display extracted OCR text if available */}
+                {selectedFile?.extractedText && (
+                  <View style={{ marginBottom: spacing.lg }}>
+                    <RevolutText variant="label" color={theme.colors.textSecondary}>
+                      EXTRACTED TEXT
+                    </RevolutText>
+                    <View style={{
+                      marginTop: spacing.xs,
+                      padding: spacing.md,
+                      backgroundColor: theme.colors.background + '80',
+                      borderRadius: borderRadius.md,
+                      borderWidth: 1,
+                      borderColor: theme.colors.primary + '30',
+                    }}>
+                      <ExpandableText
+                        text={selectedFile.extractedText}
+                        variant="body2"
+                        numberOfLines={4}
+                        style={{ lineHeight: 20 }}
+                      />
+                      {selectedFile.ocrConfidence && (
+                        <RevolutText 
+                          variant="caption" 
+                          color={theme.colors.textTertiary}
+                          style={{ marginTop: spacing.xs }}
+                        >
+                          OCR Confidence: {Math.round(selectedFile.ocrConfidence * 100)}%
+                        </RevolutText>
+                      )}
+                    </View>
+                  </View>
+                )}
               </>
             )}
 
