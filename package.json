@@ -5,13 +5,25 @@
   "private": true,
   "scripts": {
     "dev": "EXPO_NO_TELEMETRY=1 expo start",
+    "start": "expo start",
+    "start:clear": "expo start --clear",
+    "ios": "expo start --ios",
+    "android": "expo start --android",
+    "web": "expo start --web",
     "build:web": "expo export --platform web",
-    "lint": "expo lint",
     "build:ios": "eas build --platform ios",
     "build:android": "eas build --platform android",
     "build:all": "eas build --platform all",
+    "build:preview": "eas build --profile preview",
     "submit:ios": "eas submit --platform ios",
-    "submit:android": "eas submit --platform android"
+    "submit:android": "eas submit --platform android",
+    "lint": "expo lint",
+    "test": "cd tests && python run_tests.py",
+    "test:ocr": "cd tests && python -c \"from test_ocr import testOCRIntegration; testOCRIntegration()\"",
+    "setup:appstore": "node scripts/setup_app_store.js",
+    "find:appid": "node scripts/find_app_id.js",
+    "clean": "rm -rf node_modules package-lock.json && npm install",
+    "clean:cache": "expo start --clear"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.1",

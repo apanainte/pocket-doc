@@ -1,20 +1,43 @@
+/**
+ * OCR Service - Optical Character Recognition
+ * 
+ * This service provides text recognition capabilities for different platforms:
+ * - iOS: Uses VisionKit framework for native OCR
+ * - Android: Uses ML Kit for text recognition
+ * - Web: Uses simulation for development
+ * 
+ * The service follows a singleton pattern to ensure consistent state
+ * across the application.
+ */
+
 import { Platform, Alert } from 'react-native';
 import { OCRResult, OCRProcessingOptions, OCRError } from '@/types/document';
 
-// Platform-specific imports (will be implemented in native modules)
+// Platform-specific OCR implementations
 import { VisionKitOCR } from './native/VisionKitOCR';
 import { MLKitOCR } from './native/MLKitOCR';
 
+/**
+ * Main OCR Service class
+ * Handles text recognition across different platforms
+ */
 export class OCRService {
   private static instance: OCRService;
   private visionKitOCR?: VisionKitOCR;
   private mlKitOCR?: MLKitOCR;
   private isInitialized = false;
 
+  /**
+   * Private constructor to enforce singleton pattern
+   */
   private constructor() {
-    // Singleton pattern
+    // Singleton pattern - prevents direct instantiation
   }
 
+  /**
+   * Get the singleton instance of OCRService
+   * @returns The OCRService instance
+   */
   static getInstance(): OCRService {
     if (!OCRService.instance) {
       OCRService.instance = new OCRService();
