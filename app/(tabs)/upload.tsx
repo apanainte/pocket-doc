@@ -13,7 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Camera, Upload, FileText, Edit2, Save, X } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import { generateMetadata, generateEnhancedMetadata } from '@/services/aiMetadata';
+import { generateMetadata } from '@/services/aiMetadata.simplified';
 import { databaseService } from '@/services/database';
 import { Document } from '@/types/document';
 import { RevolutCard } from '@/components/ui/RevolutCard';
@@ -296,8 +296,8 @@ export default function UploadScreen() {
     try {
       addBreadcrumb(`Starting AI processing for ${type} file`, 'ai_processing');
       
-      // Use the enhanced metadata generation with OCR
-      const result = await generateEnhancedMetadata(uri, type);
+      // Use the simplified metadata generation with direct OpenAI API calls
+      const result = await generateMetadata(uri, type);
       
       const generatedMetadata = {
         title: result.title,

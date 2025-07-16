@@ -26,6 +26,8 @@
     "test:startup": "node scripts/test_startup.js",
     "setup:ocr": "node scripts/setup_ocr.js",
     "test:ocr-integration": "node scripts/test_ocr_integration.js",
+    "test:cloud-ocr": "node scripts/test_cloud_ocr.js",
+    "test:cloud-ocr:help": "node scripts/test_cloud_ocr.js --help",
     "clean": "rm -rf node_modules package-lock.json && npm install",
     "clean:cache": "expo start --clear"
   },

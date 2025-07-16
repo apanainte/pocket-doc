@@ -7,12 +7,13 @@
 
 // Core Services
 export { ocrService } from './ocrService';
+export { enhancedOCRService } from './ocrService.v2';
 export { databaseService } from './database';
 export { fileStorageService } from './fileStorage';
 
 // Processing Services
 export { textProcessingService } from './textProcessingService';
-export { generateMetadata, generateEnhancedMetadata } from './aiMetadata';
+export { generateMetadata as generateSimplifiedMetadata } from './aiMetadata.simplified';
 
 // Validation Services
 export { default as ValidationService } from './validation';

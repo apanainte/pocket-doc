@@ -106,7 +106,18 @@
         "preferredLanguage": "en",
         "minimumConfidence": 0.7,
         "enableImagePreprocessing": true
-      }
+      },
+      "cloudOCRSettings": {
+        "enableCloudOCR": true,
+        "primaryProvider": "openai",
+        "enableLocalFallback": true,
+        "enhancedMetadata": true,
+        "confidenceThreshold": 0.7,
+        "maxRetries": 3,
+        "timeout": 30000,
+        "enableQualityAnalysis": true
+      },
+      "openaiApiKey": "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"
     }
   }
 }
