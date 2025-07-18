@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { Document } from '@/types/document';
 import { databaseService } from '@/services/database';
 import { fileStorageService } from '@/services/fileStorage';
-import ValidationService from '@/services/validation';
 
 export function useDocuments() {
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -40,24 +39,17 @@ export function useDocuments() {
     setError(null);
     
     try {
-      // Validate document data
-      const validation = ValidationService.validateDocument(
-        document.title,
-        document.description,
-        document.tags.join(', ')
-      );
-
-      const validationError = ValidationService.formatValidationError(validation);
-      if (validationError) {
-        throw new Error(validationError);
+      // Basic validation - ensure required fields are present
+      if (!document.title?.trim()) {
+        throw new Error('Document title is required');
       }
 
-      // Use sanitized values
+      // Sanitize document data
       const sanitizedDocument = {
         ...document,
-        title: validation.title.sanitized || document.title,
-        description: validation.description.sanitized || document.description,
-        tags: validation.tags.sanitized?.split(', ').map(tag => tag.trim()) || document.tags
+        title: document.title.trim(),
+        description: document.description?.trim() || '',
+        tags: document.tags.filter(tag => tag.trim()).map(tag => tag.trim())
       };
 
       // Store file if source URI is provided
@@ -66,12 +58,6 @@ export function useDocuments() {
         // Generate a temporary ID for file storage
         const tempId = `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         
-        // Validate file type
-        const fileValidation = ValidationService.validateFileType(sourceUri, [document.type]);
-        if (!fileValidation.isValid) {
-          throw new Error(fileValidation.error);
-        }
-
         // Store the file
         const fileResult = await fileStorageService.storeFile(sourceUri, tempId, document.type);
         
@@ -107,31 +93,28 @@ export function useDocuments() {
     setError(null);
     
     try {
-      // Validate updates if they contain user input
+      // Basic validation and sanitization for updates
       if (updates.title || updates.description || updates.tags) {
         const currentDoc = documents.find(doc => doc.id === id);
         if (!currentDoc) {
           throw new Error('Document not found');
         }
 
-        const validation = ValidationService.validateDocument(
-          updates.title || currentDoc.title,
-          updates.description || currentDoc.description,
-          (updates.tags || currentDoc.tags).join(', ')
-        );
-
-        const validationError = ValidationService.formatValidationError(validation);
-        if (validationError) {
-          throw new Error(validationError);
+        // Sanitize updates
+        if (updates.title) {
+          updates.title = updates.title.trim();
+          if (!updates.title) {
+            throw new Error('Document title cannot be empty');
+          }
         }
 
-        // Use sanitized values
-        updates = {
-          ...updates,
-          title: validation.title.sanitized || updates.title,
-          description: validation.description.sanitized || updates.description,
-          tags: validation.tags.sanitized?.split(', ').map(tag => tag.trim()) || updates.tags
-        };
+        if (updates.description) {
+          updates.description = updates.description.trim();
+        }
+
+        if (updates.tags) {
+          updates.tags = updates.tags.filter((tag: string) => tag.trim()).map((tag: string) => tag.trim());
+        }
       }
 
       // Update in database

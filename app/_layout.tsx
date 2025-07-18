@@ -29,8 +29,6 @@ import { ThemeProvider } from '@/contexts/ThemeContext';
 import { AppProvider } from '@/contexts/AppContext';
 import { initializeMonitoring } from '@/services/monitoring';
 import { performanceMonitoringService } from '@/services/performanceMonitoring';
-import { enhancedOCRService } from '@/services/ocrService.v2';
-import { getAutoCloudOCRConfig } from '@/services/config/envConfig';
 
 // Prevent splash screen from auto-hiding until fonts are loaded
 SplashScreen.preventAutoHideAsync();
@@ -65,14 +63,7 @@ export default function RootLayout() {
         await databaseService.initialize();
         console.log('Database initialized in root layout');
 
-        // Initialize enhanced OCR service with cloud providers
-        try {
-          const cloudOCRConfig = getAutoCloudOCRConfig();
-          await enhancedOCRService.initialize(cloudOCRConfig);
-          console.log('Enhanced OCR service initialized with cloud providers');
-        } catch (error) {
-          console.warn('Failed to initialize enhanced OCR service:', error);
-        }
+        // OCR service initialization no longer needed - using direct OpenAI API calls
 
         // Performance monitoring is automatically initialized
         console.log('Performance monitoring initialized');

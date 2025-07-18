@@ -6,8 +6,17 @@
  */
 
 import { MetadataGenerationResponse, OCRError } from '../types/document';
-import { getOpenAIApiKey } from './config/envConfig';
 import * as FileSystem from 'expo-file-system';
+import Constants from 'expo-constants';
+
+/**
+ * Get OpenAI API key from environment
+ */
+function getOpenAIApiKey(): string | undefined {
+  return process.env.EXPO_PUBLIC_OPENAI_API_KEY || 
+         process.env.OPENAI_API_KEY || 
+         Constants.expoConfig?.extra?.openaiApiKey;
+}
 
 interface SimplifiedMetadataResponse extends MetadataGenerationResponse {
   title: string;

@@ -19,15 +19,9 @@
     "submit:android": "eas submit --platform android",
     "lint": "expo lint",
     "test": "cd tests && python run_tests.py",
-    "test:ocr": "cd tests && python -c \"from test_ocr import testOCRIntegration; testOCRIntegration()\"",
     "setup:appstore": "node scripts/setup_app_store.js",
     "find:appid": "node scripts/find_app_id.js",
-    "verify:phase1": "node scripts/verify_phase1.js",
     "test:startup": "node scripts/test_startup.js",
-    "setup:ocr": "node scripts/setup_ocr.js",
-    "test:ocr-integration": "node scripts/test_ocr_integration.js",
-    "test:cloud-ocr": "node scripts/test_cloud_ocr.js",
-    "test:cloud-ocr:help": "node scripts/test_cloud_ocr.js --help",
     "clean": "rm -rf node_modules package-lock.json && npm install",
     "clean:cache": "expo start --clear"
   },
@@ -72,8 +66,7 @@
     "react-native-svg": "^15.11.2",
     "react-native-url-polyfill": "^2.0.0",
     "react-native-web": "^0.20.0",
-    "react-native-webview": "13.13.5",
-    "react-native-mlkit-ocr": "^0.3.0"
+    "react-native-webview": "13.13.5"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
