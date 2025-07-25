@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   SafeAreaView,
@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   Dimensions
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Camera, Upload, FileText, Edit2, Save, X } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
@@ -24,11 +23,16 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { validateFile, FileInfo } from '@/services/fileValidation';
 import { trackFileUpload, trackUIInteraction, completeOperation, startOperation } from '@/services/performanceMonitoring';
 import { captureError, addBreadcrumb } from '@/services/monitoring';
+import UploadBottomSheet from '@/components/UploadBottomSheet';
+import { useRouter } from 'expo-router';
+import SearchBar from '@/components/SearchBar';
 
 const { width } = Dimensions.get('window');
 
 export default function UploadScreen() {
   const { theme, spacing, borderRadius, iconSizes } = useTheme();
+  const router = useRouter();
+  const [showBottomSheet, setShowBottomSheet] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<{
     uri: string;
@@ -51,6 +55,93 @@ export default function UploadScreen() {
   const [processingAI, setProcessingAI] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [validationWarnings, setValidationWarnings] = useState<string[]>([]);
+
+  // Show bottom sheet when upload screen is accessed directly or after successful upload
+  useEffect(() => {
+    console.log('Upload screen useEffect - selectedFile:', selectedFile ? 'exists' : 'null');
+    if (!selectedFile) {
+      console.log('Setting showBottomSheet to true');
+      setShowBottomSheet(true);
+    }
+  }, [selectedFile]);
+
+  // Debug logging for showBottomSheet changes
+  useEffect(() => {
+    console.log('showBottomSheet changed to:', showBottomSheet);
+  }, [showBottomSheet]);
+
+
+  const processFile = useCallback(async (fileInfo: FileInfo, type: 'image' | 'pdf') => {
+    setIsUploading(true);
+    setValidationErrors([]);
+    setValidationWarnings([]);
+
+    try {
+      // Validate file
+      const isValid = await validateSelectedFile(fileInfo);
+      if (!isValid) {
+        setIsUploading(false);
+        return;
+      }
+
+      // Generate metadata first
+      setProcessingAI(true);
+      const generatedMetadata = await generateMetadata(fileInfo.uri, type);
+      
+      // Set selected file with extracted text and metadata
+      setSelectedFile({
+        uri: fileInfo.uri,
+        type,
+        name: fileInfo.name,
+        size: fileInfo.size,
+        extractedText: generatedMetadata.extractedText,
+        ocrConfidence: generatedMetadata.confidence,
+        processingTime: generatedMetadata.processingTime,
+      });
+      
+      setMetadata(generatedMetadata);
+      setEditedTitle(generatedMetadata.title);
+      setEditedDescription(generatedMetadata.description);
+      setEditedTags(generatedMetadata.tags.join(', '));
+      
+    } catch (error) {
+      console.error('Error processing file:', error);
+      Alert.alert('Error', 'Failed to process file. Please try again.');
+    } finally {
+      setIsUploading(false);
+      setProcessingAI(false);
+    }
+  }, [validateSelectedFile]);
+
+  const handleCloseBottomSheet = useCallback(() => {
+    console.log('Closing bottom sheet');
+    setShowBottomSheet(false);
+    // Navigate back to library only if no file was selected and user explicitly closed
+    if (!selectedFile) {
+      console.log('No file selected, navigating back to library');
+      router.push('/(tabs)/');
+    }
+  }, [selectedFile, router]);
+
+  const handleFileSelected = useCallback(async (fileInfo: { uri: string; type: 'image' | 'pdf'; name: string; mimeType?: string }) => {
+    try {
+      // Get file size from the URI
+      const response = await fetch(fileInfo.uri);
+      const blob = await response.blob();
+      
+      const fullFileInfo: FileInfo = {
+        uri: fileInfo.uri,
+        name: fileInfo.name,
+        type: fileInfo.mimeType || (fileInfo.type === 'image' ? 'image/jpeg' : 'application/pdf'),
+        size: blob.size,
+      };
+      
+      await processFile(fullFileInfo, fileInfo.type);
+    } catch (error) {
+      console.error('Error processing selected file:', error);
+      Alert.alert('Error', 'Failed to process selected file. Please try again.');
+    }
+  }, [processFile]);
 
   const validateSelectedFile = useCallback(async (fileInfo: FileInfo): Promise<boolean> => {
     try {
@@ -425,7 +516,17 @@ export default function UploadScreen() {
       });
       
       addBreadcrumb(`Document saved successfully: ${selectedFile.name}`, 'document_save');
-      Alert.alert('Success', 'Document uploaded successfully with OCR!');
+      
+      // Show success message and prepare for next upload
+      Alert.alert('Success', 'Document uploaded successfully with OCR!', [
+        {
+          text: 'OK',
+          onPress: () => {
+            // Ensure bottom sheet is shown for next upload
+            setShowBottomSheet(true);
+          }
+        }
+      ]);
     } catch (error) {
       console.error('Error saving document:', error);
       captureError(error as Error, {
@@ -444,6 +545,7 @@ export default function UploadScreen() {
   }, [selectedFile, metadata, editedTitle, editedDescription, editedTags]);
 
   const handleCancel = useCallback(() => {
+    console.log('Canceling upload and resetting all states');
     setSelectedFile(null);
     setMetadata(null);
     setIsEditing(false);
@@ -452,6 +554,7 @@ export default function UploadScreen() {
     setEditedTags('');
     setValidationErrors([]);
     setValidationWarnings([]);
+    setShowBottomSheet(true);
   }, []);
 
   const toggleEditing = useCallback(() => {
@@ -763,51 +866,87 @@ export default function UploadScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <LinearGradient
-        colors={theme.colors.backgroundGradient as [string, string]}
-        style={{ flex: 1 }}
-      >
-        <SafeAreaView style={{ flex: 1 }}>
-          {/* Header with gradient background */}
-          <LinearGradient
-            colors={theme.colors.primaryGradient as [string, string]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={{
-              paddingHorizontal: spacing.lg,
-              paddingTop: spacing.lg,
-              paddingBottom: spacing.xl,
-              borderBottomLeftRadius: borderRadius.xl,
-              borderBottomRightRadius: borderRadius.xl,
-            }}
-          >
-            <RevolutText variant="h1" color="#ffffff">
-              Upload Document
-            </RevolutText>
-            <RevolutText 
-              variant="subtitle1" 
-              color="rgba(255, 255, 255, 0.9)"
-              style={{ marginTop: spacing.sm }}
+      <SafeAreaView style={{ flex: 1 }}>
+        <SearchBar 
+          placeholder="Search..."
+          editable={false}
+          onPress={() => {/* Navigate to search screen */}}
+        />
+        
+        <ScrollView 
+          style={{ flex: 1 }}
+          contentContainerStyle={{ 
+            paddingTop: 120, // Account for sticky search bar
+            paddingBottom: spacing.xl,
+            paddingHorizontal: spacing.lg
+          }}
+          showsVerticalScrollIndicator={false}
+          accessible={true}
+          accessibilityLabel="Upload screen content"
+        >
+          {selectedFile ? (
+            <>
+              {renderFilePreview()}
+              {renderMetadataForm()}
+            </>
+          ) : isUploading ? (
+            <View style={{
+              flex: 1,
+              justifyContent: 'center',
+              alignItems: 'center',
+              paddingVertical: spacing.xxxl || spacing.xl,
+            }}>
+              <RevolutText 
+                variant="h3" 
+                color={theme.colors.textSecondary} 
+                style={{ textAlign: 'center' }}
+                accessible={true}
+                accessibilityLabel="Processing upload"
+              >
+                Processing your upload...
+              </RevolutText>
+            </View>
+          ) : (
+            <TouchableOpacity 
+              style={{
+                flex: 1,
+                justifyContent: 'center',
+                alignItems: 'center',
+                paddingVertical: spacing.xxxl || spacing.xl,
+              }}
+              onPress={() => {
+                console.log('Manual trigger: setting showBottomSheet to true');
+                setShowBottomSheet(true);
+              }}
             >
-              Add photos, images, or PDF files to your secure library
-            </RevolutText>
-          </LinearGradient>
+              <RevolutText 
+                variant="h3" 
+                color={theme.colors.textSecondary} 
+                style={{ textAlign: 'center' }}
+                accessible={true}
+                accessibilityLabel="Upload ready"
+              >
+                Ready to upload
+              </RevolutText>
+              <RevolutText 
+                variant="body2" 
+                color={theme.colors.textTertiary} 
+                style={{ textAlign: 'center', marginTop: spacing.sm }}
+                accessible={true}
+                accessibilityLabel="Tap to start upload"
+              >
+                Tap to start upload
+              </RevolutText>
+            </TouchableOpacity>
+          )}
+        </ScrollView>
 
-          <ScrollView 
-            style={{ flex: 1 }}
-            showsVerticalScrollIndicator={false}
-            accessible={true}
-            accessibilityLabel="Upload screen content"
-          >
-            {!selectedFile ? renderUploadOptions() : (
-              <>
-                {renderFilePreview()}
-                {renderMetadataForm()}
-              </>
-            )}
-          </ScrollView>
-        </SafeAreaView>
-      </LinearGradient>
+        <UploadBottomSheet
+          visible={showBottomSheet}
+          onClose={handleCloseBottomSheet}
+          onFileSelected={handleFileSelected}
+        />
+      </SafeAreaView>
     </View>
   );
 }

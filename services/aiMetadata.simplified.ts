@@ -222,9 +222,48 @@ async function processFileWithOpenAI(
   // Parse response
   try {
     const content = data.choices[0].message.content;
-    const parsedResult = JSON.parse(content) as OpenAIMetadataResult;
     
-    return parsedResult;
+    // Try to parse as JSON first
+    try {
+      const parsedResult = JSON.parse(content) as OpenAIMetadataResult;
+      return parsedResult;
+    } catch (jsonError) {
+      // If JSON parsing fails, the response might be plain text
+      // Create a structured response from the plain text
+      console.log('📝 OpenAI response is plain text, creating structured response...');
+      
+      const extractedText = content.trim();
+      
+      // Generate title from first line or few words
+      const lines = extractedText.split('\n').filter(line => line.trim().length > 0);
+      const title = lines[0] 
+        ? lines[0].substring(0, 50).trim() + (lines[0].length > 50 ? '...' : '')
+        : 'Document';
+      
+      // Generate description
+      const description = extractedText.length > 200 
+        ? extractedText.substring(0, 200).trim() + '...'
+        : extractedText;
+      
+      // Generate tags based on content
+      const tags = [];
+      if (extractedText.toLowerCase().includes('reforma')) tags.push('renovation');
+      if (extractedText.toLowerCase().includes('presupuesto')) tags.push('budget');
+      if (extractedText.toLowerCase().includes('factura')) tags.push('invoice');
+      if (extractedText.toLowerCase().includes('contract')) tags.push('contract');
+      if (extractedText.toLowerCase().includes('€')) tags.push('financial');
+      if (tags.length === 0) tags.push('document');
+      
+      return {
+        extractedText,
+        confidence: 0.85,
+        metadata: {
+          title,
+          description,
+          tags: tags.slice(0, 5)
+        }
+      };
+    }
   } catch (parseError) {
     console.error('Failed to parse OpenAI response:', data.choices[0].message.content);
     throw new OCRError({

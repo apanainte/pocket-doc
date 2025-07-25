@@ -6,13 +6,14 @@ import {
   TouchableOpacity,
   RefreshControl,
   Alert,
-  Dimensions
+  Dimensions,
+  ScrollView
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
 import { DocumentCard } from '@/components/DocumentCard';
 import { DocumentDetailModal } from '@/components/DocumentDetailModal';
 import { RevolutText } from '@/components/ui/RevolutText';
+import SearchBar from '@/components/SearchBar';
 import { databaseService } from '@/services/database';
 import { Document } from '@/types/document';
 import { Grid2x2 as Grid, List } from 'lucide-react-native';
@@ -172,11 +173,20 @@ export default function LibraryScreen() {
   if (error && !refreshing) {
     return (
       <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-        <LinearGradient
-          colors={theme.colors.backgroundGradient as [string, string]}
-          style={{ flex: 1 }}
-        >
-          <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.lg }}>
+        <SafeAreaView style={{ flex: 1 }}>
+          <SearchBar 
+            placeholder="Search..."
+            editable={false}
+            onPress={() => {/* Navigate to search screen */}}
+          />
+          
+          <View style={{ 
+            flex: 1, 
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            padding: spacing.lg,
+            paddingTop: 120 // Account for sticky search bar
+          }}>
             <RevolutText variant="h3" color={theme.colors.error} style={{ marginBottom: spacing.md, textAlign: 'center' }}>
               Error Loading Documents
             </RevolutText>
@@ -200,115 +210,143 @@ export default function LibraryScreen() {
                 Try Again
               </RevolutText>
             </TouchableOpacity>
-          </SafeAreaView>
-        </LinearGradient>
+          </View>
+        </SafeAreaView>
       </View>
     );
   }
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <LinearGradient
-        colors={theme.colors.backgroundGradient as [string, string]}
-        style={{ flex: 1 }}
-      >
-        <SafeAreaView style={{ flex: 1 }}>
-          {/* Header with gradient background */}
-          <LinearGradient
-            colors={theme.colors.primaryGradient as [string, string]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={{
-              paddingHorizontal: spacing.lg,
-              paddingTop: spacing.lg,
-              paddingBottom: spacing.xl,
-              borderBottomLeftRadius: borderRadius.xl,
-              borderBottomRightRadius: borderRadius.xl,
-            }}
-          >
+      <SafeAreaView style={{ flex: 1 }}>
+        <SearchBar 
+          placeholder="Search..."
+          editable={false}
+          onPress={() => {/* Navigate to search screen */}}
+        />
+        
+        <ScrollView 
+          style={{ flex: 1 }}
+          contentContainerStyle={{ 
+            paddingTop: 120, // Account for sticky search bar
+            paddingBottom: spacing.xl,
+            paddingHorizontal: spacing.lg
+          }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={theme.colors.primary}
+              colors={[theme.colors.primary]}
+            />
+          }
+        >
+          {/* Welcome Message */}
+          <View style={{ 
+            marginBottom: spacing.xl,
+            alignItems: 'center'
+          }}>
+            <RevolutText 
+              variant="h2" 
+              color={theme.colors.text}
+              style={{ 
+                textAlign: 'center',
+                marginBottom: spacing.sm
+              }}
+              accessible={true}
+              accessibilityLabel="Welcome message"
+            >
+              Welcome!
+            </RevolutText>
+            <RevolutText 
+              variant="body1" 
+              color={theme.colors.textSecondary}
+              style={{ 
+                textAlign: 'center',
+                marginBottom: spacing.md
+              }}
+              accessible={true}
+              accessibilityLabel="Document count"
+            >
+              {documents.length > 0 
+                ? `You have ${documents.length} document${documents.length !== 1 ? 's' : ''}`
+                : 'Upload your first document to get started'
+              }
+            </RevolutText>
+          </View>
+
+          {/* Documents Grid */}
+          {documents.length > 0 ? (
             <View style={{
               flexDirection: 'row',
+              flexWrap: 'wrap',
               justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: spacing.md,
+              gap: spacing.md,
             }}>
-              <RevolutText 
-                variant="h1" 
-                color="#ffffff"
-                accessible={true}
-                accessibilityLabel="Document library"
-              >
-                My Documents
-              </RevolutText>
-              <TouchableOpacity 
-                onPress={toggleViewMode}
-                style={{
-                  padding: spacing.sm,
-                  backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                  borderRadius: borderRadius.md,
-                }}
-                accessible={true}
-                accessibilityRole="button"
-                accessibilityLabel={`Switch to ${viewMode === 'grid' ? 'list' : 'grid'} view`}
-                accessibilityHint={`Currently showing ${viewMode} view. Tap to switch to ${viewMode === 'grid' ? 'list' : 'grid'} view`}
-              >
-                {viewMode === 'grid' ? (
-                  <List size={iconSizes.lg} color="#ffffff" />
-                ) : (
-                  <Grid size={iconSizes.lg} color="#ffffff" />
-                )}
-              </TouchableOpacity>
+              {documents.map((document) => (
+                <View 
+                  key={document.id}
+                  style={{
+                    width: (width - spacing.lg * 2 - spacing.md) / 2,
+                    marginBottom: spacing.lg,
+                  }}
+                >
+                  <DocumentCard 
+                    document={document}
+                    onPress={() => handleDocumentPress(document)}
+                  />
+                </View>
+              ))}
             </View>
-            
-            {documents.length > 0 && (
+          ) : (
+            <View style={{
+              flex: 1,
+              justifyContent: 'center',
+              alignItems: 'center',
+              paddingVertical: spacing.xxxl || spacing.xl,
+            }}>
+              <View style={{
+                width: 80,
+                height: 80,
+                borderRadius: 40,
+                backgroundColor: theme.colors.primary + '20',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: spacing.lg,
+              }}>
+                <Grid size={iconSizes.xl} color={theme.colors.primary} />
+              </View>
               <RevolutText 
-                variant="subtitle1" 
-                color="rgba(255, 255, 255, 0.9)"
+                variant="h3" 
+                color={theme.colors.textSecondary} 
+                style={{ marginBottom: spacing.sm, textAlign: 'center' }}
                 accessible={true}
-                accessibilityLabel={`You have ${documents.length} document${documents.length !== 1 ? 's' : ''}`}
+                accessibilityLabel="No documents message"
               >
-                {documents.length} document{documents.length !== 1 ? 's' : ''}
+                No documents yet
               </RevolutText>
-            )}
-          </LinearGradient>
+              <RevolutText 
+                variant="body1" 
+                color={theme.colors.textTertiary} 
+                style={{ textAlign: 'center' }}
+                accessible={true}
+                accessibilityLabel="Upload first document instruction"
+              >
+                Tap the + button to upload your first document
+              </RevolutText>
+            </View>
+          )}
+        </ScrollView>
 
-          <FlatList
-            data={documents}
-            renderItem={renderDocument}
-            keyExtractor={keyExtractor}
-            numColumns={2}
-            columnWrapperStyle={columnWrapperStyle}
-            contentContainerStyle={contentContainerStyle}
-            ListEmptyComponent={renderEmpty}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={handleRefresh}
-                tintColor={theme.colors.primary}
-                colors={[theme.colors.primary]}
-              />
-            }
-            showsVerticalScrollIndicator={false}
-            // Performance optimizations
-            removeClippedSubviews={true}
-            maxToRenderPerBatch={10}
-            updateCellsBatchingPeriod={100}
-            windowSize={10}
-            initialNumToRender={8}
-            getItemLayout={documents.length > 0 ? getItemLayout : undefined}
-            accessible={true}
-            accessibilityLabel="Document library list"
-          />
-
-          <DocumentDetailModal
-            document={selectedDocument}
-            visible={!!selectedDocument}
-            onClose={closeModal}
-            onUpdate={updateDocument}
-            onDelete={deleteDocument}
-          />
-        </SafeAreaView>
-      </LinearGradient>
+        <DocumentDetailModal
+          document={selectedDocument}
+          visible={!!selectedDocument}
+          onClose={closeModal}
+          onUpdate={updateDocument}
+          onDelete={deleteDocument}
+        />
+      </SafeAreaView>
     </View>
   );
 }

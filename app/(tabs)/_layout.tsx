@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
-import { Upload, Search, Library, User } from 'lucide-react-native';
+import { Plus, Library, User } from 'lucide-react-native';
 import SimpleAuthScreen from '@/components/SimpleAuthScreen';
 import * as SecureStore from 'expo-secure-store';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -54,21 +54,25 @@ export default function TabLayout() {
           height: Platform.OS === 'ios' ? 88 : 64,
           paddingBottom: Platform.OS === 'ios' ? 28 : spacing.sm,
           paddingTop: spacing.sm,
-          paddingHorizontal: spacing.md,
-          ...theme.shadows.small,
+          paddingHorizontal: spacing.lg,
+          borderRadius: 16,
+          marginHorizontal: spacing.md,
+          marginBottom: spacing.sm,
+          ...theme.shadows.medium,
         },
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.textTertiary,
         tabBarLabelStyle: {
-          fontFamily: 'Inter-SemiBold',
-          fontSize: 11,
-          letterSpacing: 0.5,
-          textTransform: 'uppercase',
+          fontFamily: 'Inter-Medium',
+          fontSize: 12,
+          letterSpacing: 0.2,
+          textTransform: 'capitalize',
         },
         tabBarItemStyle: {
           paddingTop: spacing.xs,
           borderRadius: borderRadius.md,
         },
+        tabBarItemTransitionDuration: 300,
       }}>
       <Tabs.Screen
         name="index"
@@ -85,22 +89,10 @@ export default function TabLayout() {
       <Tabs.Screen
         name="upload"
         options={{
-          title: 'Upload',
+          title: '',
           tabBarIcon: ({ size, color }) => (
-            <Upload 
-              size={size} 
-              color={color}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="search"
-        options={{
-          title: 'Search',
-          tabBarIcon: ({ size, color }) => (
-            <Search 
-              size={size} 
+            <Plus 
+              size={size + 4} 
               color={color}
             />
           ),
@@ -116,6 +108,12 @@ export default function TabLayout() {
               color={color}
             />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="search"
+        options={{
+          href: null, // Hide from tab bar
         }}
       />
     </Tabs>

@@ -7,13 +7,13 @@ import {
   ScrollView,
   Switch,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { LogOut, Shield, User, Moon, Sun, Smartphone, Settings } from 'lucide-react-native';
 import * as SecureStore from 'expo-secure-store';
 import { RevolutCard } from '@/components/ui/RevolutCard';
 import { RevolutText } from '@/components/ui/RevolutText';
 import { RevolutButton } from '@/components/ui/RevolutButton';
 import { useTheme } from '@/contexts/ThemeContext';
+import SearchBar from '@/components/SearchBar';
 
 export default function ProfileScreen() {
   const { theme, themeMode, setThemeMode, isDark, spacing, borderRadius, iconSizes } = useTheme();
@@ -62,38 +62,22 @@ export default function ProfileScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <LinearGradient
-        colors={theme.colors.backgroundGradient as [string, string]}
-        style={{ flex: 1 }}
-      >
-        <SafeAreaView style={{ flex: 1 }}>
-          {/* Header with gradient background */}
-          <LinearGradient
-            colors={theme.colors.primaryGradient as [string, string]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={{
-              paddingHorizontal: spacing.lg,
-              paddingTop: spacing.lg,
-              paddingBottom: spacing.xl,
-              borderBottomLeftRadius: borderRadius.xl,
-              borderBottomRightRadius: borderRadius.xl,
-            }}
-          >
-            <RevolutText variant="h1" color="#ffffff">
-              Profile
-            </RevolutText>
-          </LinearGradient>
-
-          <ScrollView
-            style={{ flex: 1 }}
-            contentContainerStyle={{
-              paddingHorizontal: spacing.lg,
-              paddingTop: spacing.xl,
-              paddingBottom: spacing.xl,
-            }}
-            showsVerticalScrollIndicator={false}
-          >
+      <SafeAreaView style={{ flex: 1 }}>
+        <SearchBar 
+          placeholder="Search..."
+          editable={false}
+          onPress={() => {/* Navigate to search screen */}}
+        />
+        
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            paddingTop: 120, // Account for sticky search bar
+            paddingHorizontal: spacing.lg,
+            paddingBottom: spacing.xl,
+          }}
+          showsVerticalScrollIndicator={false}
+        >
             {/* User Section */}
             <RevolutCard 
               gradient={true}
@@ -240,7 +224,6 @@ export default function ProfileScreen() {
             />
           </ScrollView>
         </SafeAreaView>
-      </LinearGradient>
     </View>
   );
 }

@@ -103,15 +103,15 @@ export const typography = {
     fontSize: 14,
     lineHeight: 20,
     fontFamily: 'Inter-SemiBold',
-    letterSpacing: 0.25,
-    textTransform: 'uppercase',
+    letterSpacing: 0.1,
+    textTransform: 'capitalize',
   } as TextStyle,
   
   buttonLarge: {
     fontSize: 16,
     lineHeight: 24,
     fontFamily: 'Inter-SemiBold',
-    letterSpacing: 0.25,
+    letterSpacing: 0.1,
   } as TextStyle,
   
   // Labels
