@@ -29,42 +29,9 @@ export default function LibraryScreen() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [refreshing, setRefreshing] = useState(false);
 
-  // Initialize database and load documents with proper cleanup
+  // Load documents when component mounts and when screen comes into focus
   useEffect(() => {
-    let isMounted = true; // Prevent state updates if component unmounted
-    
-    const initAndLoad = async () => {
-      try {
-        if (!isMounted) return;
-        setIsLoading(true);
-        setError(null);
-        
-        await databaseService.initialize();
-        const loadedDocuments = await databaseService.getAllDocuments();
-        
-        if (isMounted) {
-          setDocuments(loadedDocuments);
-          setError(null);
-        }
-      } catch (err) {
-        console.error('Failed to load documents:', err);
-        if (isMounted) {
-          setError('Failed to load documents');
-          setDocuments([]);
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    initAndLoad();
-    
-    // Cleanup function
-    return () => {
-      isMounted = false;
-    };
+    loadDocuments();
   }, []);
 
   // Refresh documents when screen comes into focus with proper dependency management
@@ -76,12 +43,16 @@ export default function LibraryScreen() {
 
   const loadDocuments = useCallback(async () => {
     try {
+      setIsLoading(true);
+      setError(null);
       const loadedDocuments = await databaseService.getAllDocuments();
       setDocuments(loadedDocuments);
-      setError(null);
     } catch (err) {
       console.error('Failed to load documents:', err);
       setError('Failed to load documents');
+      setDocuments([]);
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 

@@ -4,6 +4,7 @@ import {
   SafeAreaView,
   FlatList,
   TouchableOpacity,
+  ActivityIndicator,
   Dimensions,
   Alert
 } from 'react-native';
@@ -28,20 +29,9 @@ export default function SearchScreen() {
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [showFilters, setShowFilters] = useState(false);
 
-  // Initialize database and load documents
+  // Load documents when component mounts
   useEffect(() => {
-    const initAndLoad = async () => {
-      try {
-        await databaseService.initialize();
-        const loadedDocuments = await databaseService.getAllDocuments();
-        setDocuments(loadedDocuments);
-      } catch (err) {
-        console.error('Failed to load documents for search:', err);
-        setDocuments([]);
-      }
-    };
-
-    initAndLoad();
+    loadDocuments();
   }, []);
 
   // Refresh documents when screen comes into focus
@@ -60,16 +50,41 @@ export default function SearchScreen() {
     }
   }, []);
 
-  // Memoized search function for performance
-  const searchResults = useMemo(() => {
-    if (!searchQuery.trim()) return [];
-    
-    const searchTerm = searchQuery.toLowerCase();
-    return documents.filter(doc =>
-      doc.title.toLowerCase().includes(searchTerm) ||
-      doc.description.toLowerCase().includes(searchTerm) ||
-      doc.tags.some(tag => tag.toLowerCase().includes(searchTerm))
-    );
+  // Enhanced search with OCR text support
+  const [searchResults, setSearchResults] = useState<Document[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  // Debounced search function for performance
+  useEffect(() => {
+    const performSearch = async () => {
+      if (!searchQuery.trim()) {
+        setSearchResults([]);
+        return;
+      }
+
+      setIsSearching(true);
+      try {
+        // Use database search which includes OCR text
+        const results = await databaseService.searchDocuments(searchQuery);
+        setSearchResults(results);
+      } catch (error) {
+        console.error('Search failed:', error);
+        // Fallback to local search
+        const searchTerm = searchQuery.toLowerCase();
+        const localResults = documents.filter(doc =>
+          doc.title.toLowerCase().includes(searchTerm) ||
+          doc.description.toLowerCase().includes(searchTerm) ||
+          doc.tags.some(tag => tag.toLowerCase().includes(searchTerm)) ||
+          (doc.extractedText && doc.extractedText.toLowerCase().includes(searchTerm))
+        );
+        setSearchResults(localResults);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+
+    const timeoutId = setTimeout(performSearch, 300); // Debounce search
+    return () => clearTimeout(timeoutId);
   }, [searchQuery, documents]);
 
   const updateDocument = useCallback(async (id: string, updates: Partial<Document>) => {
@@ -178,15 +193,26 @@ export default function SearchScreen() {
         alignItems: 'center',
         marginTop: spacing.md,
       }}>
-        {searchQuery.trim() && searchResults.length > 0 && (
-          <RevolutText 
-            variant="caption" 
-            color={theme.colors.textSecondary}
-            accessible={true}
-            accessibilityLabel={`Found ${searchResults.length} search results`}
-          >
-            {searchResults.length} result{searchResults.length !== 1 ? 's' : ''} found
-          </RevolutText>
+        {searchQuery.trim() && (
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            {isSearching && (
+              <ActivityIndicator 
+                size="small" 
+                color={theme.colors.primary} 
+                style={{ marginRight: spacing.sm }}
+              />
+            )}
+            <RevolutText 
+              variant="caption" 
+              color={theme.colors.textSecondary}
+              accessible={true}
+              accessibilityLabel={isSearching ? 'Searching documents' : `Found ${searchResults.length} search results`}
+            >
+              {isSearching 
+                ? 'Searching...' 
+                : `${searchResults.length} result${searchResults.length !== 1 ? 's' : ''} found`}
+            </RevolutText>
+          </View>
         )}
         <TouchableOpacity
           onPress={() => setShowFilters(!showFilters)}

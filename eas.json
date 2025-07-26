@@ -1,16 +1,8 @@
 {
   "cli": {
-    "version": ">= 16.15.0",
-    "appVersionSource": "remote"
+    "version": ">= 12.0.0"
   },
   "build": {
-    "development": {
-      "developmentClient": true,
-      "distribution": "internal",
-      "ios": {
-        "resourceClass": "m-medium"
-      }
-    },
     "preview": {
       "distribution": "internal",
       "ios": {
@@ -18,19 +10,16 @@
       }
     },
     "production": {
-      "autoIncrement": true,
       "ios": {
         "resourceClass": "m-medium"
       }
     }
   },
   "submit": {
-          "production": {
-        "ios": {
-          "appleId": "apanainte@gmail.com",
-          "ascAppId": "6748480585",
-          "appleTeamId": "68P7LMB8Q3"
-        }
+    "production": {
+      "ios": {
+        "ascAppId": "6748480585"
       }
+    }
   }
 }

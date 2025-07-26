@@ -1,17 +1,33 @@
 {
-  "name": "bolt-expo-starter",
+  "name": "pocket-doc",
   "main": "expo-router/entry",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "scripts": {
     "dev": "EXPO_NO_TELEMETRY=1 expo start",
+    "start": "expo start",
+    "start:clear": "expo start --clear",
+    "ios": "expo run:ios",
+    "android": "expo run:android",
+    "web": "expo start --web",
     "build:web": "expo export --platform web",
-    "lint": "expo lint",
     "build:ios": "eas build --platform ios",
     "build:android": "eas build --platform android",
     "build:all": "eas build --platform all",
+    "build:preview": "eas build --profile preview",
     "submit:ios": "eas submit --platform ios",
-    "submit:android": "eas submit --platform android"
+    "submit:android": "eas submit --platform android",
+    "lint": "expo lint",
+    "test": "cd tests && python run_tests.py",
+    "test:ocr": "cd tests && python -c \"from test_ocr import testOCRIntegration; testOCRIntegration()\"",
+    "setup:appstore": "node scripts/setup_app_store.js",
+    "find:appid": "node scripts/find_app_id.js",
+    "verify:phase1": "node scripts/verify_phase1.js",
+    "test:startup": "node scripts/test_startup.js",
+    "setup:ocr": "node scripts/setup_ocr.js",
+    "test:ocr-integration": "node scripts/test_ocr_integration.js",
+    "clean": "rm -rf node_modules package-lock.json && npm install",
+    "clean:cache": "expo start --clear"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.1",
@@ -20,6 +36,8 @@
     "@react-native-async-storage/async-storage": "^2.1.2",
     "@react-navigation/bottom-tabs": "^7.3.10",
     "@react-navigation/native": "^7.0.14",
+    "@sentry/react-native": "^6.17.0",
+    "dotenv": "^17.2.0",
     "expo": "53.0.19",
     "expo-blur": "~14.1.5",
     "expo-camera": "~16.1.10",
@@ -44,8 +62,11 @@
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-native": "0.79.5",
+    "react-native-document-scanner-plugin": "^1.0.1",
+    "react-native-fs": "^2.20.0",
     "react-native-gesture-handler": "~2.24.0",
     "react-native-linear-gradient": "^2.8.3",
+    "react-native-mlkit-ocr": "^0.3.0",
     "react-native-reanimated": "~3.17.4",
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.11.1",
@@ -56,7 +77,9 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
+    "@types/jest": "^30.0.0",
     "@types/react": "~19.0.10",
+    "jest": "^30.0.4",
     "typescript": "~5.8.3"
   }
 }
