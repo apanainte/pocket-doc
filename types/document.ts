@@ -1,3 +1,12 @@
+export interface Category {
+  id: string;
+  name: string;
+  color: string;
+  icon: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface Document {
   id: string;
   title: string;
@@ -9,6 +18,8 @@ export interface Document {
   createdAt: Date;
   updatedAt: Date;
   fileSize?: number;
+  // Category association
+  categoryId?: string;
   // OCR-extracted content
   extractedText?: string;
   ocrData?: OCRResult;

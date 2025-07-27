@@ -10,12 +10,12 @@ import {
   Dimensions
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Camera, Upload, FileText, Edit2, Save, X } from 'lucide-react-native';
+import { Camera, Upload, FileText, Edit2, Save, X, Folder, ChevronDown } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import { generateMetadata, generateEnhancedMetadata } from '@/services/aiMetadata';
+// REMOVED: AI metadata generation - using manual entry only
 import { databaseService } from '@/services/database';
-import { Document } from '@/types/document';
+import { Document, Category } from '@/types/document';
 import { RevolutCard } from '@/components/ui/RevolutCard';
 import { RevolutText } from '@/components/ui/RevolutText';
 import { RevolutButton } from '@/components/ui/RevolutButton';
@@ -26,6 +26,9 @@ import { validateFile, FileInfo } from '@/services/fileValidation';
 import { trackFileUpload, trackUIInteraction, completeOperation, startOperation } from '@/services/performanceMonitoring';
 import { captureError, addBreadcrumb } from '@/services/monitoring';
 import { documentScannerService } from '@/services/DocumentScannerService';
+import { useFocusEffect } from '@react-navigation/native';
+import { ocrService } from '@/services/ocrService';
+import { fileStorageService } from '@/services/fileStorage';
 
 const { width } = Dimensions.get('window');
 
@@ -51,8 +54,31 @@ export default function UploadScreen() {
   const [editedDescription, setEditedDescription] = useState('');
   const [editedTags, setEditedTags] = useState('');
   const [processingAI, setProcessingAI] = useState(false);
-  const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  const [validationWarnings, setValidationWarnings] = useState<string[]>([]);
+
+  // Categories
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(false);
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+
+  // Load categories when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadCategories();
+    }, [])
+  );
+
+  const loadCategories = async () => {
+    setIsLoadingCategories(true);
+    try {
+      const categoriesData = await databaseService.getAllCategories();
+      setCategories(categoriesData);
+    } catch (error) {
+      console.error('Failed to load categories:', error);
+    } finally {
+      setIsLoadingCategories(false);
+    }
+  };
 
   const validateSelectedFile = useCallback(async (fileInfo: FileInfo): Promise<boolean> => {
     try {
@@ -60,8 +86,7 @@ export default function UploadScreen() {
       
       const validationResult = await validateFile(fileInfo);
       
-      setValidationErrors(validationResult.errors);
-      setValidationWarnings(validationResult.warnings);
+      // Validation errors handled by validation service
       
       if (!validationResult.isValid) {
         Alert.alert(
@@ -96,11 +121,81 @@ export default function UploadScreen() {
     }
   }, []);
 
+  const processDocument = useCallback(async (uri: string, type: 'image' | 'pdf') => {
+    const operationId = startOperation('document_processing', 'upload');
+    setProcessingAI(true);
+    
+    try {
+      let extractedText = '';
+      let ocrConfidence = 0;
+      let processingTime = 0;
+      
+      // Only do OCR for images (PDFs would need different handling)
+      if (type === 'image') {
+        try {
+          const startTime = Date.now();
+          const ocrResult = await ocrService.recognizeText(uri, {
+            recognitionLevel: 'accurate',
+            minimumConfidence: 0.5
+          });
+          processingTime = Date.now() - startTime;
+          
+          extractedText = ocrResult.text || '';
+          ocrConfidence = ocrResult.confidence || 0;
+          
+          console.log(`OCR completed: "${extractedText.substring(0, 50)}...", confidence: ${ocrConfidence.toFixed(2)}`);
+        } catch (error) {
+          console.warn('OCR failed:', error);
+          // Show user-friendly message that OCR failed
+          Alert.alert(
+            'Text Recognition Failed', 
+            'Unable to extract text from this image. You can still add a title and description manually.',
+            [{ text: 'OK' }]
+          );
+        }
+      }
+      
+      // Create empty metadata for manual entry
+      const emptyMetadata = {
+        title: '',
+        description: '',
+        tags: []
+      };
+      
+      setMetadata(emptyMetadata);
+      setEditedTitle('');
+      setEditedDescription('');
+      setEditedTags('');
+      setIsEditing(true); // Immediately enter editing mode for user input
+      
+      // Store OCR data if available
+      setSelectedFile(prev => prev ? {
+        ...prev,
+        extractedText,
+        ocrConfidence,
+        processingTime
+      } : null);
+      
+      completeOperation(operationId, true, {
+        textLength: extractedText.length,
+        confidence: ocrConfidence,
+        processingTime,
+        fileType: type,
+      });
+      
+    } catch (error) {
+      console.error('Error processing document:', error);
+      Alert.alert('Error', 'Failed to process document');
+      completeOperation(operationId, false, { reason: 'processing_failed' });
+    } finally {
+      setProcessingAI(false);
+    }
+  }, []);
+
   const pickImage = useCallback(async () => {
     const operationId = trackUIInteraction('pick_image_button', 'upload_screen');
     
     try {
-      // Complete UI interaction immediately after button press
       completeOperation(operationId, true, { action: 'button_pressed' });
       
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -119,10 +214,8 @@ export default function UploadScreen() {
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
         
-        // Start file processing operation separately
         const fileProcessingId = startOperation('file_upload', 'upload', { fileType: 'image' });
         
-        // Create file info for validation
         const fileInfo: FileInfo = {
           name: asset.fileName || 'image.jpg',
           size: asset.fileSize || 0,
@@ -131,7 +224,6 @@ export default function UploadScreen() {
           lastModified: Date.now(),
         };
         
-        // Validate file before processing
         const isValid = await validateSelectedFile(fileInfo);
         if (!isValid) {
           completeOperation(fileProcessingId, false, { reason: 'validation_failed' });
@@ -145,64 +237,54 @@ export default function UploadScreen() {
           size: asset.fileSize
         });
         
-        await processWithAI(asset.uri, 'image');
+        await processDocument(asset.uri, 'image');
         completeOperation(fileProcessingId, true, { fileSize: asset.fileSize });
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      captureError(error as Error, {
-        tags: { operation: 'pick_image', screen: 'upload' },
-      });
-      Alert.alert('Error', 'Failed to pick image');
+      Alert.alert('Error', 'Failed to select image');
+      completeOperation(operationId, false, { reason: 'error' });
     }
-  }, [validateSelectedFile]);
+  }, [validateSelectedFile, processDocument]);
 
   const takePhoto = useCallback(async () => {
-    const operationId = trackUIInteraction('take_photo', 'upload_screen');
+    const operationId = trackUIInteraction('take_photo_button', 'upload_screen');
     
-    // Apple HIG: Clear permission request with context
     Alert.alert(
-      'Camera Access',
-      'Pocket Doc needs camera access to capture document photos for your personal library.',
+      'Take Photo',
+      'Choose how you want to capture your document',
       [
-        { text: 'Cancel', style: 'cancel', onPress: () => completeOperation(operationId, false, { reason: 'user_canceled' }) },
+        { text: 'Cancel', style: 'cancel' },
         { 
-          text: 'Allow', 
+          text: 'Camera', 
           onPress: async () => {
             try {
               const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
               
               if (!permissionResult.granted) {
-                Alert.alert('Permission required', 'Camera permission is needed to take photos');
-                completeOperation(operationId, false, { reason: 'permission_denied' });
+                Alert.alert('Permission required', 'Camera access is needed to take photos');
                 return;
               }
-              
+
               const result = await ImagePicker.launchCameraAsync({
                 allowsEditing: true,
                 aspect: [4, 3],
                 quality: 0.8,
               });
 
-              // Complete UI interaction here - user has taken photo
               if (!result.canceled && result.assets[0]) {
-                completeOperation(operationId, true, { action: 'photo_taken' });
-                
                 const asset = result.assets[0];
                 
-                // Start file processing operation separately
                 const fileProcessingId = startOperation('file_upload', 'upload', { fileType: 'image' });
                 
-                // Create file info for validation
                 const fileInfo: FileInfo = {
-                  name: asset.fileName || 'photo.jpg',
+                  name: 'photo.jpg',
                   size: asset.fileSize || 0,
                   type: 'image/jpeg',
                   uri: asset.uri,
                   lastModified: Date.now(),
                 };
                 
-                // Validate file before processing
                 const isValid = await validateSelectedFile(fileInfo);
                 if (!isValid) {
                   completeOperation(fileProcessingId, false, { reason: 'validation_failed' });
@@ -212,20 +294,16 @@ export default function UploadScreen() {
                 setSelectedFile({
                   uri: asset.uri,
                   type: 'image',
-                  name: asset.fileName || 'photo.jpg',
+                  name: 'photo.jpg',
                   size: asset.fileSize
                 });
                 
-                await processWithAI(asset.uri, 'image');
+                await processDocument(asset.uri, 'image');
                 completeOperation(fileProcessingId, true, { fileSize: asset.fileSize });
-              } else {
-                completeOperation(operationId, false, { reason: 'user_canceled' });
+                completeOperation(operationId, true, { method: 'camera' });
               }
             } catch (error) {
               console.error('Error taking photo:', error);
-              captureError(error as Error, {
-                tags: { operation: 'take_photo', screen: 'upload' },
-              });
               Alert.alert('Error', 'Failed to take photo');
               completeOperation(operationId, false, { reason: 'error' });
             }
@@ -233,94 +311,19 @@ export default function UploadScreen() {
         }
       ]
     );
-  }, [validateSelectedFile]);
-
-  const pickDocument = useCallback(async () => {
-    const operationId = trackUIInteraction('pick_document', 'upload_screen');
-    
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: 'application/pdf',
-        copyToCacheDirectory: true,
-      });
-
-      // Complete UI interaction here - user has selected document
-      if (!result.canceled && result.assets[0]) {
-        completeOperation(operationId, true, { action: 'document_selected' });
-        
-        const asset = result.assets[0];
-        
-        // Start file processing operation separately
-        const fileProcessingId = startOperation('file_upload', 'upload', { fileType: 'pdf' });
-        
-        // Create file info for validation
-        const fileInfo: FileInfo = {
-          name: asset.name,
-          size: asset.size || 0,
-          type: 'application/pdf',
-          uri: asset.uri,
-          lastModified: Date.now(),
-        };
-        
-        // Validate file before processing
-        const isValid = await validateSelectedFile(fileInfo);
-        if (!isValid) {
-          completeOperation(fileProcessingId, false, { reason: 'validation_failed' });
-          return;
-        }
-        
-        setSelectedFile({
-          uri: asset.uri,
-          type: 'pdf',
-          name: asset.name,
-          size: asset.size
-        });
-        
-        await processWithAI(asset.uri, 'pdf');
-        completeOperation(fileProcessingId, true, { fileSize: asset.size });
-      } else {
-        completeOperation(operationId, false, { reason: 'user_canceled' });
-      }
-    } catch (error) {
-      console.error('Error picking document:', error);
-      captureError(error as Error, {
-        tags: { operation: 'pick_document', screen: 'upload' },
-      });
-      Alert.alert('Error', 'Failed to pick document');
-      completeOperation(operationId, false, { reason: 'error' });
-    }
-  }, [validateSelectedFile]);
+  }, [validateSelectedFile, processDocument]);
 
   const scanDocument = useCallback(async () => {
     const operationId = trackUIInteraction('scan_document', 'upload_screen');
     
     try {
-      addBreadcrumb('Starting professional document scan', 'scanning');
+      const scanResult = await documentScannerService.scanDocument();
       
-      // Check if scanner is available
-      const isAvailable = await documentScannerService.isAvailable();
-      if (!isAvailable) {
-        Alert.alert(
-          'Scanner Not Available',
-          'The document scanner is not available on this device. Please use the camera option instead.',
-          [{ text: 'OK' }]
-        );
-        completeOperation(operationId, false, { reason: 'scanner_not_available' });
-        return;
-      }
-      
-      // Launch the professional scanner
-      const scanResult = await documentScannerService.scanSinglePage();
-      
-      if (scanResult && scanResult.scannedImages.length > 0) {
-        completeOperation(operationId, true, { pageCount: scanResult.pageCount });
-        
+      if (scanResult && scanResult.scannedImages && scanResult.scannedImages.length > 0) {
         const firstImage = scanResult.scannedImages[0];
         
-        // Start file processing operation
-        const fileProcessingId = startOperation('file_upload', 'upload', { fileType: 'scanned_image' });
+        const fileProcessingId = startOperation('file_upload', 'upload', { fileType: 'image' });
         
-        // Create file info for validation
         const fileInfo: FileInfo = {
           name: `${scanResult.documentName}.jpg`,
           size: scanResult.metadata.fileSize || 0,
@@ -329,7 +332,6 @@ export default function UploadScreen() {
           lastModified: Date.now(),
         };
         
-        // Validate file before processing
         const isValid = await validateSelectedFile(fileInfo);
         if (!isValid) {
           completeOperation(fileProcessingId, false, { reason: 'validation_failed' });
@@ -343,81 +345,71 @@ export default function UploadScreen() {
           size: scanResult.metadata.fileSize
         });
         
-        await processWithAI(firstImage, 'image', true); // Pass true for scanned document
+        await processDocument(firstImage, 'image');
         completeOperation(fileProcessingId, true, { 
           fileSize: scanResult.metadata.fileSize,
           scanTime: scanResult.totalScanTime,
           confidence: scanResult.averageConfidence
         });
-        
-        addBreadcrumb(`Document scan completed successfully: ${scanResult.documentName}`, 'scanning');
       } else {
         completeOperation(operationId, false, { reason: 'scan_canceled' });
-        addBreadcrumb('Document scan was canceled by user', 'scanning');
       }
       
     } catch (error) {
       console.error('Error scanning document:', error);
-      captureError(error as Error, {
-        tags: { operation: 'scan_document', screen: 'upload' },
-      });
       Alert.alert('Scan Error', 'Failed to scan document. Please try again.');
       completeOperation(operationId, false, { reason: 'scan_error' });
     }
-  }, [validateSelectedFile]);
+  }, [validateSelectedFile, processDocument]);
 
-  const processWithAI = useCallback(async (uri: string, type: 'image' | 'pdf', isScannedDocument: boolean = false) => {
-    const operationId = startOperation('ai_metadata_generation', 'ai', { model: 'enhanced_metadata' });
-    setProcessingAI(true);
+  const pickDocument = useCallback(async () => {
+    const operationId = trackUIInteraction('pick_document', 'upload_screen');
     
     try {
-      addBreadcrumb(`Starting AI processing for ${type} file`, 'ai_processing');
-      
-      // Use the enhanced metadata generation with OCR
-      const result = await generateEnhancedMetadata(uri, type, undefined, isScannedDocument);
-      
-      const generatedMetadata = {
-        title: result.title,
-        description: result.description,
-        tags: result.tags
-      };
-      
-      setMetadata(generatedMetadata);
-      setEditedTitle(result.title);
-      setEditedDescription(result.description);
-      setEditedTags(result.tags.join(', '));
-      
-      // Store OCR data for later use
-      if (result.extractedText) {
-        setSelectedFile(prev => prev ? {
-          ...prev,
-          extractedText: result.extractedText,
-          ocrConfidence: result.confidence,
-          processingTime: result.processingTime
-        } : null);
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'application/pdf',
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        completeOperation(operationId, true, { action: 'document_selected' });
+        
+        const asset = result.assets[0];
+        
+        const fileProcessingId = startOperation('file_upload', 'upload', { fileType: 'pdf' });
+        
+        const fileInfo: FileInfo = {
+          name: asset.name,
+          size: asset.size || 0,
+          type: 'application/pdf',
+          uri: asset.uri,
+          lastModified: Date.now(),
+        };
+        
+        const isValid = await validateSelectedFile(fileInfo);
+        if (!isValid) {
+          completeOperation(fileProcessingId, false, { reason: 'validation_failed' });
+          return;
+        }
+        
+        setSelectedFile({
+          uri: asset.uri,
+          type: 'pdf',
+          name: asset.name,
+          size: asset.size
+        });
+        
+        await processDocument(asset.uri, 'pdf');
+        completeOperation(fileProcessingId, true, { fileSize: asset.size });
+      } else {
+        completeOperation(operationId, false, { reason: 'user_canceled' });
       }
-      
-      completeOperation(operationId, true, {
-        textLength: result.extractedText?.length || 0,
-        confidence: result.confidence,
-        processingTime: result.processingTime,
-        fileType: type,
-      });
-      
-      addBreadcrumb(`AI processing completed successfully for ${type} file`, 'ai_processing');
-      
     } catch (error) {
-      console.error('Error processing with AI:', error);
-      captureError(error as Error, {
-        tags: { operation: 'ai_processing', screen: 'upload', fileType: type },
-        extra: { fileUri: uri },
-      });
-      Alert.alert('Error', 'Failed to generate metadata');
-      completeOperation(operationId, false, { reason: 'ai_processing_failed' });
-    } finally {
-      setProcessingAI(false);
+      console.error('Error picking document:', error);
+      Alert.alert('Error', 'Failed to select document');
+      completeOperation(operationId, false, { reason: 'error' });
     }
-  }, []);
+  }, [validateSelectedFile, processDocument]);
 
   // Memoized upload options for performance - moved after function definitions
   const uploadOptions = useMemo(() => [
@@ -461,27 +453,40 @@ export default function UploadScreen() {
 
   const handleSave = useCallback(async () => {
     if (!selectedFile || !metadata) return;
+    
+    const title = editedTitle.trim();
+    if (!title) {
+      Alert.alert('Error', 'Please enter a document title');
+      return;
+    }
 
-    const operationId = startOperation('document_save', 'database', {
-      fileType: selectedFile.type,
-      fileSize: selectedFile.size,
-      hasOCR: !!selectedFile.extractedText,
-    });
+    setIsUploading(true);
+    const operationId = startOperation('document_save', 'upload');
 
     try {
-      addBreadcrumb(`Starting document save for: ${selectedFile.name}`, 'document_save');
+      // Initialize file storage service
+      await fileStorageService.initialize();
       
-      const tags = editedTags.split(',').map(tag => tag.trim()).filter(tag => tag);
+      // Generate unique document ID
+      const documentId = `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
+      // Store file and generate thumbnail
+      const { storedUri, thumbnailUri, fileSize } = await fileStorageService.storeFile(
+        selectedFile.uri,
+        documentId,
+        selectedFile.type
+      );
+
       const newDocument: Omit<Document, 'id' | 'createdAt' | 'updatedAt'> = {
-        title: editedTitle,
-        description: editedDescription,
-        tags,
+        title: title,
+        description: editedDescription.trim(),
+        tags: editedTags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0),
         type: selectedFile.type,
-        uri: selectedFile.uri,
-        thumbnail: selectedFile.type === 'image' ? selectedFile.uri : undefined,
-        fileSize: selectedFile.size,
+        uri: storedUri,
+        thumbnail: thumbnailUri,
+        fileSize: fileSize,
         extractedText: selectedFile.extractedText,
+        categoryId: selectedCategory?.id,
         ocrData: selectedFile.ocrConfidence ? {
           text: selectedFile.extractedText || '',
           confidence: selectedFile.ocrConfidence,
@@ -491,43 +496,31 @@ export default function UploadScreen() {
         } : undefined
       };
 
-      setIsUploading(true);
       await databaseService.addDocument(newDocument);
       
-      // Reset form
+      // Reset state
       setSelectedFile(null);
       setMetadata(null);
-      setIsEditing(false);
       setEditedTitle('');
       setEditedDescription('');
       setEditedTags('');
-      setValidationErrors([]);
-      setValidationWarnings([]);
-      
-      completeOperation(operationId, true, {
-        documentId: newDocument.title,
-        tagsCount: tags.length,
-        extractedTextLength: selectedFile.extractedText?.length || 0,
-      });
-      
-      addBreadcrumb(`Document saved successfully: ${selectedFile.name}`, 'document_save');
-      Alert.alert('Success', 'Document uploaded successfully with OCR!');
+      setSelectedCategory(null);
+      setIsEditing(false);
+
+      completeOperation(operationId, true, { documentTitle: title, categoryId: selectedCategory?.id });
+      Alert.alert('Success', 'Document saved successfully!');
     } catch (error) {
-      console.error('Error saving document:', error);
+      console.error('Failed to save document:', error);
       captureError(error as Error, {
         tags: { operation: 'document_save', screen: 'upload' },
-        extra: { 
-          fileName: selectedFile.name,
-          fileSize: selectedFile.size,
-          fileType: selectedFile.type,
-        },
+        extra: { documentTitle: title },
       });
-      Alert.alert('Error', 'Failed to save document');
-      completeOperation(operationId, false, { reason: 'database_error' });
+      completeOperation(operationId, false, { reason: 'save_failed' });
+      Alert.alert('Error', 'Failed to save document. Please try again.');
     } finally {
       setIsUploading(false);
     }
-  }, [selectedFile, metadata, editedTitle, editedDescription, editedTags]);
+  }, [selectedFile, metadata, editedTitle, editedDescription, editedTags, selectedCategory]);
 
   const handleCancel = useCallback(() => {
     setSelectedFile(null);
@@ -536,64 +529,170 @@ export default function UploadScreen() {
     setEditedTitle('');
     setEditedDescription('');
     setEditedTags('');
-    setValidationErrors([]);
-    setValidationWarnings([]);
   }, []);
 
   const toggleEditing = useCallback(() => {
     setIsEditing(!isEditing);
   }, [isEditing]);
 
-  const renderUploadOptions = () => (
-    <View style={{
-      gap: spacing.lg,
-      marginTop: spacing.xl,
-    }}>
-      {uploadOptions.map((option) => (
-        <RevolutCard 
-          key={option.id}
-          shadow="medium" 
-          style={{ marginHorizontal: spacing.lg }}
-        >
+  const renderUploadOptions = () => {
+    const [scanOption, cameraOption, uploadOption, pdfOption] = uploadOptions;
+    
+    return (
+      <View style={{
+        gap: spacing.md,
+        marginTop: spacing.lg,
+        paddingHorizontal: spacing.lg,
+      }}>
+        {/* Grid Layout for Upload Options */}
+        <View style={{
+          flexDirection: 'row',
+          gap: spacing.md,
+        }}>
           <TouchableOpacity
-            onPress={option.onPress}
+            onPress={scanOption.onPress}
             style={{
-              flexDirection: 'row',
-              alignItems: 'center',
+              flex: 1,
+              backgroundColor: theme.colors.surface,
               paddingVertical: spacing.lg,
+              paddingHorizontal: spacing.md,
+              borderRadius: borderRadius.lg,
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: theme.colors.border,
+              minHeight: 120,
             }}
             accessible={true}
             accessibilityRole="button"
-            accessibilityLabel={option.accessibilityLabel}
-            accessibilityHint={option.accessibilityHint}
+            accessibilityLabel={scanOption.accessibilityLabel}
+            accessibilityHint={scanOption.accessibilityHint}
           >
             <View style={{
-              width: 56,
-              height: 56,
-              borderRadius: 28,
-              backgroundColor: option.color + '20',
+              width: 48,
+              height: 48,
+              borderRadius: 24,
+              backgroundColor: scanOption.color + '20',
               justifyContent: 'center',
               alignItems: 'center',
-              marginRight: spacing.lg,
+              marginBottom: spacing.md,
             }}>
-              <option.icon size={iconSizes.xl} color={option.color} />
+              <scanOption.icon size={24} color={scanOption.color} />
             </View>
-            <View style={{ flex: 1 }}>
-              <RevolutText variant="h6" style={{ marginBottom: spacing.xs }}>
-                {option.title}
-              </RevolutText>
-              <RevolutText variant="body2" color={theme.colors.textSecondary}>
-                {option.id === 'scan' ? 'Professional scanning with edge detection' :
-                 option.id === 'camera' ? 'Capture documents with your camera' :
-                 option.id === 'upload' ? 'Select from your photo library' :
-                 'Choose PDF files from your device'}
-              </RevolutText>
-            </View>
+            <RevolutText variant="h6" style={{ textAlign: 'center', fontSize: 14, fontWeight: '600' }}>
+              {scanOption.title}
+            </RevolutText>
           </TouchableOpacity>
-        </RevolutCard>
-      ))}
-    </View>
-  );
+
+          <TouchableOpacity
+            onPress={cameraOption.onPress}
+            style={{
+              flex: 1,
+              backgroundColor: theme.colors.surface,
+              paddingVertical: spacing.lg,
+              paddingHorizontal: spacing.md,
+              borderRadius: borderRadius.lg,
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: theme.colors.border,
+              minHeight: 120,
+            }}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel={cameraOption.accessibilityLabel}
+            accessibilityHint={cameraOption.accessibilityHint}
+          >
+            <View style={{
+              width: 48,
+              height: 48,
+              borderRadius: 24,
+              backgroundColor: cameraOption.color + '20',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginBottom: spacing.md,
+            }}>
+              <cameraOption.icon size={24} color={cameraOption.color} />
+            </View>
+            <RevolutText variant="h6" style={{ textAlign: 'center', fontSize: 14, fontWeight: '600' }}>
+              {cameraOption.title}
+            </RevolutText>
+          </TouchableOpacity>
+        </View>
+
+        <View style={{
+          flexDirection: 'row',
+          gap: spacing.md,
+        }}>
+          <TouchableOpacity
+            onPress={uploadOption.onPress}
+            style={{
+              flex: 1,
+              backgroundColor: theme.colors.surface,
+              paddingVertical: spacing.lg,
+              paddingHorizontal: spacing.md,
+              borderRadius: borderRadius.lg,
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: theme.colors.border,
+              minHeight: 120,
+            }}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel={uploadOption.accessibilityLabel}
+            accessibilityHint={uploadOption.accessibilityHint}
+          >
+            <View style={{
+              width: 48,
+              height: 48,
+              borderRadius: 24,
+              backgroundColor: uploadOption.color + '20',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginBottom: spacing.md,
+            }}>
+              <uploadOption.icon size={24} color={uploadOption.color} />
+            </View>
+            <RevolutText variant="h6" style={{ textAlign: 'center', fontSize: 14, fontWeight: '600' }}>
+              {uploadOption.title}
+            </RevolutText>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={pdfOption.onPress}
+            style={{
+              flex: 1,
+              backgroundColor: theme.colors.surface,
+              paddingVertical: spacing.lg,
+              paddingHorizontal: spacing.md,
+              borderRadius: borderRadius.lg,
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: theme.colors.border,
+              minHeight: 120,
+            }}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel={pdfOption.accessibilityLabel}
+            accessibilityHint={pdfOption.accessibilityHint}
+          >
+            <View style={{
+              width: 48,
+              height: 48,
+              borderRadius: 24,
+              backgroundColor: pdfOption.color + '20',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginBottom: spacing.md,
+            }}>
+              <pdfOption.icon size={24} color={pdfOption.color} />
+            </View>
+            <RevolutText variant="h6" style={{ textAlign: 'center', fontSize: 14, fontWeight: '600' }}>
+              {pdfOption.title}
+            </RevolutText>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
 
   const renderFilePreview = () => {
     if (!selectedFile) return null;
@@ -708,14 +807,14 @@ export default function UploadScreen() {
                 color={theme.colors.textSecondary}
                 style={{ marginTop: spacing.md }}
               >
-                Analyzing document with AI...
+                Processing document...
               </RevolutText>
               <RevolutText 
                 variant="body2" 
                 color={theme.colors.textTertiary}
                 style={{ marginTop: spacing.sm, textAlign: 'center' }}
               >
-                Please wait while we extract metadata from your document
+                Please wait while we extract text from your document
               </RevolutText>
             </View>
           </RevolutCard>
@@ -728,7 +827,7 @@ export default function UploadScreen() {
               marginBottom: spacing.lg,
             }}>
               <RevolutText variant="h5">
-                Generated Metadata
+                Document Details
               </RevolutText>
               <TouchableOpacity 
                 onPress={toggleEditing}
@@ -777,6 +876,115 @@ export default function UploadScreen() {
                   accessibilityLabel="Document tags input"
                   accessibilityHint="Enter tags separated by commas to categorize your document"
                 />
+
+                {/* Category Selection */}
+                <View style={{ marginBottom: spacing.lg }}>
+                  <RevolutText variant="label" color={theme.colors.textSecondary} style={{ marginBottom: spacing.sm }}>
+                    CATEGORY
+                  </RevolutText>
+                  <TouchableOpacity
+                    onPress={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                    style={{
+                      borderWidth: 1,
+                      borderColor: theme.colors.border,
+                      borderRadius: borderRadius.md,
+                      paddingHorizontal: spacing.md,
+                      paddingVertical: spacing.md,
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      backgroundColor: theme.colors.surface,
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                      {selectedCategory ? (
+                        <>
+                          <View style={{
+                            width: 24,
+                            height: 24,
+                            borderRadius: 12,
+                            backgroundColor: selectedCategory.color + '30',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            marginRight: spacing.sm,
+                          }}>
+                            <Folder size={12} color={selectedCategory.color} />
+                          </View>
+                          <RevolutText variant="body1">
+                            {selectedCategory.name}
+                          </RevolutText>
+                        </>
+                      ) : (
+                        <RevolutText variant="body1" color={theme.colors.textTertiary}>
+                          Select a category (optional)
+                        </RevolutText>
+                      )}
+                    </View>
+                    <ChevronDown size={iconSizes.sm} color={theme.colors.textSecondary} />
+                  </TouchableOpacity>
+
+                  {showCategoryDropdown && (
+                    <View style={{
+                      marginTop: spacing.sm,
+                      borderWidth: 1,
+                      borderColor: theme.colors.border,
+                      borderRadius: borderRadius.md,
+                      backgroundColor: theme.colors.surface,
+                      maxHeight: 200,
+                    }}>
+                      <ScrollView>
+                        <TouchableOpacity
+                          onPress={() => {
+                            setSelectedCategory(null);
+                            setShowCategoryDropdown(false);
+                          }}
+                          style={{
+                            paddingHorizontal: spacing.md,
+                            paddingVertical: spacing.md,
+                            borderBottomWidth: 1,
+                            borderBottomColor: theme.colors.border,
+                          }}
+                        >
+                          <RevolutText variant="body1" color={theme.colors.textTertiary}>
+                            No Category
+                          </RevolutText>
+                        </TouchableOpacity>
+                        {categories.map((category) => (
+                          <TouchableOpacity
+                            key={category.id}
+                            onPress={() => {
+                              setSelectedCategory(category);
+                              setShowCategoryDropdown(false);
+                            }}
+                            style={{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              paddingHorizontal: spacing.md,
+                              paddingVertical: spacing.md,
+                              borderBottomWidth: categories.indexOf(category) < categories.length - 1 ? 1 : 0,
+                              borderBottomColor: theme.colors.border,
+                            }}
+                          >
+                            <View style={{
+                              width: 24,
+                              height: 24,
+                              borderRadius: 12,
+                              backgroundColor: category.color + '30',
+                              justifyContent: 'center',
+                              alignItems: 'center',
+                              marginRight: spacing.sm,
+                            }}>
+                              <Folder size={12} color={category.color} />
+                            </View>
+                            <RevolutText variant="body1">
+                              {category.name}
+                            </RevolutText>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
               </>
             ) : (
               <>
@@ -800,6 +1008,35 @@ export default function UploadScreen() {
                     style={{ marginTop: spacing.xs }}
                   />
                 </View>
+
+                {/* Category Display */}
+                {selectedCategory && (
+                  <View style={{ marginBottom: spacing.lg }}>
+                    <RevolutText variant="label" color={theme.colors.textSecondary}>
+                      CATEGORY
+                    </RevolutText>
+                    <View style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      marginTop: spacing.xs,
+                    }}>
+                      <View style={{
+                        width: 24,
+                        height: 24,
+                        borderRadius: 12,
+                        backgroundColor: selectedCategory.color + '30',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        marginRight: spacing.sm,
+                      }}>
+                        <Folder size={12} color={selectedCategory.color} />
+                      </View>
+                      <RevolutText variant="body1">
+                        {selectedCategory.name}
+                      </RevolutText>
+                    </View>
+                  </View>
+                )}
                 
                 <View style={{ marginBottom: spacing.lg }}>
                   <RevolutText variant="label" color={theme.colors.textSecondary}>
@@ -891,30 +1128,34 @@ export default function UploadScreen() {
         style={{ flex: 1 }}
       >
         <SafeAreaView style={{ flex: 1 }}>
-          {/* Header with gradient background */}
-          <LinearGradient
-            colors={theme.colors.primaryGradient as [string, string]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={{
-              paddingHorizontal: spacing.lg,
-              paddingTop: spacing.lg,
-              paddingBottom: spacing.xl,
-              borderBottomLeftRadius: borderRadius.xl,
-              borderBottomRightRadius: borderRadius.xl,
-            }}
-          >
-            <RevolutText variant="h1" color="#ffffff">
-              Upload Document
-            </RevolutText>
-            <RevolutText 
-              variant="subtitle1" 
-              color="rgba(255, 255, 255, 0.9)"
-              style={{ marginTop: spacing.sm }}
-            >
-              Add photos, images, or PDF files to your secure library
-            </RevolutText>
-          </LinearGradient>
+          {/* Compact Header - Consistent with Library and Settings */}
+          <View style={{
+            paddingHorizontal: spacing.lg,
+            paddingTop: spacing.md,
+            paddingBottom: spacing.md,
+            backgroundColor: theme.colors.background,
+            borderBottomWidth: 1,
+            borderBottomColor: theme.colors.border,
+          }}>
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}>
+              <View>
+                <RevolutText variant="h2">
+                  Upload Document
+                </RevolutText>
+                <RevolutText 
+                  variant="caption" 
+                  color={theme.colors.textSecondary}
+                  style={{ marginTop: 2 }}
+                >
+                  Add files to your secure library
+                </RevolutText>
+              </View>
+            </View>
+          </View>
 
           <ScrollView 
             style={{ flex: 1 }}

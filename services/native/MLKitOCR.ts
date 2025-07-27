@@ -215,120 +215,17 @@ export class MLKitOCR {
   }
 
   private async performIntelligentAnalysis(imageUri: string, options: OCRProcessingOptions): Promise<Omit<OCRResult, 'processingTime'>> {
-    console.log('MLKitOCR: Using intelligent analysis as fallback');
+    console.log('MLKitOCR: OCR failed - no fallback text generation');
     
-    try {
-      // Get image information for analysis
-      const imageInfo = await FileSystem.getInfoAsync(imageUri);
-      console.log('MLKitOCR: Image info:', {
-        size: imageInfo.exists && !imageInfo.isDirectory ? (imageInfo as any).size : 'unknown',
-        exists: imageInfo.exists,
-        uri: imageUri.substring(0, 50) + '...'
-      });
-
-      // Analyze image characteristics
-      const analysis = await this.analyzeImageCharacteristics(imageUri, imageInfo);
-      
-      // Generate appropriate fallback text based on analysis
-      const fallbackText = this.generateFallbackText(analysis);
-      
-      console.log('MLKitOCR: Generated fallback text based on image analysis');
-
-      return this.createOCRResult(fallbackText, analysis.confidence);
-
-    } catch (error) {
-      console.warn('MLKitOCR: Analysis failed, using minimal fallback:', error);
-      return this.createMinimalResult();
-    }
+    // No fake text generation - throw error for honest handling
+    throw new Error('MLKit OCR not available - real text extraction failed');
   }
 
-  private async analyzeImageCharacteristics(imageUri: string, imageInfo: any): Promise<{
-    contentType: string;
-    confidence: number;
-    fileSize: number;
-    estimatedTextDensity: number;
-  }> {
-         const uriLower = imageUri.toLowerCase();
-     
-     let contentType = 'document';
-     let confidence = 0.7;
-     let estimatedTextDensity = 0.5;
-     const fileSize = 0; // File size analysis skipped due to type constraints
+// REMOVED: analyzeImageCharacteristics - no fake content analysis needed
 
-    // Analyze URI patterns for hints
-    if (uriLower.includes('receipt') || uriLower.includes('bill') || uriLower.includes('invoice')) {
-      contentType = 'receipt';
-      confidence = 0.9;
-      estimatedTextDensity = 0.6;
-    } else if (uriLower.includes('card') || uriLower.includes('id') || uriLower.includes('license')) {
-      contentType = 'identification_card';
-      confidence = 0.85;
-      estimatedTextDensity = 0.5;
-    } else if (uriLower.includes('contract') || uriLower.includes('agreement')) {
-      contentType = 'legal_document';
-      confidence = 0.8;
-      estimatedTextDensity = 0.9;
-    } else if (uriLower.includes('medical') || uriLower.includes('health')) {
-      contentType = 'medical_document';
-      confidence = 0.85;
-      estimatedTextDensity = 0.7;
-    }
+// REMOVED: generateFallbackText - no fake text generation
 
-    return {
-      contentType,
-      confidence,
-      fileSize,
-      estimatedTextDensity
-    };
-  }
-
-  private generateFallbackText(analysis: {
-    contentType: string;
-    confidence: number;
-    fileSize: number;
-    estimatedTextDensity: number;
-  }): string {
-    const timestamp = new Date().toISOString().split('T')[0];
-    
-    // Generate realistic fallback text based on document type
-    switch (analysis.contentType) {
-      case 'receipt':
-        return `Receipt\n${timestamp}\nStore Transaction\nItem details and pricing\nTotal amount\nPayment method\nThank you for your business`;
-      
-      case 'identification_card':
-        return `Identification Document\nName: [Personal Information]\nDocument Number: [Protected]\nIssue Date: ${timestamp}\nExpiration Date: [Protected]\nOfficial identification document`;
-      
-      case 'legal_document':
-        return `Legal Document\n${timestamp}\nContract Terms and Conditions\nParty Information\nAgreement Details\nSignature Requirements\nLegal obligations and rights`;
-      
-      case 'medical_document':
-        return `Medical Document\nPatient Information\nMedical Provider Details\nDate of Service: ${timestamp}\nTreatment Information\nMedical notes and recommendations`;
-      
-      case 'high_resolution_scan':
-        return `High Resolution Document\nDetailed text content\nMultiple sections and paragraphs\nStructured information\nProfessional document format\nComprehensive text data`;
-      
-      default:
-        return `Document\n${timestamp}\nText content detected\nStructured information\nDocument contains readable text\nProcessed successfully`;
-    }
-  }
-
-  private createMinimalResult(): Omit<OCRResult, 'processingTime'> {
-    return {
-      text: 'Document text content detected',
-      confidence: 0.6,
-      blocks: [{
-        text: 'Document text content detected',
-        confidence: 0.6,
-        elements: [{
-          text: 'Document text content detected',
-          confidence: 0.6,
-          boundingBox: { x: 10, y: 10, width: 200, height: 20 }
-        }],
-        boundingBox: { x: 10, y: 10, width: 200, height: 20 }
-      }],
-      imageSize: { width: 320, height: 240 }
-    };
-  }
+// REMOVED: createMinimalResult - no fake results
 
   private createEmptyResult(): Omit<OCRResult, 'processingTime'> {
     return {
@@ -339,41 +236,5 @@ export class MLKitOCR {
     };
   }
 
-  private createOCRResult(text: string, confidence: number): Omit<OCRResult, 'processingTime'> {
-    const lines = text.split('\n').filter(line => line.trim().length > 0);
-    const blocks: OCRTextBlock[] = lines.map((line, index) => {
-      const elements: OCRTextElement[] = [{
-        text: line,
-        confidence: confidence + (Math.random() * 0.1 - 0.05),
-        boundingBox: {
-          x: 20,
-          y: 40 + (index * 30),
-          width: Math.max(line.length * 12, 150),
-          height: 25
-        }
-      }];
-
-      return {
-        text: line,
-        confidence: confidence,
-        elements,
-        boundingBox: {
-          x: 20,
-          y: 40 + (index * 30),
-          width: Math.max(line.length * 12, 150),
-          height: 25
-        }
-      };
-    });
-
-    return {
-      text,
-      confidence,
-      blocks,
-      imageSize: {
-        width: 400,
-        height: 300
-      }
-    };
-  }
+// REMOVED: createOCRResult - no fake OCR result generation
 } 

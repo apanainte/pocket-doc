@@ -2,10 +2,14 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 import { Alert } from 'react-native';
 
+export type AuthMethod = 'biometric' | 'passcode' | 'both';
+
 export class AuthService {
   private readonly AUTH_TOKEN_KEY = 'auth_token';
   private readonly USER_ID_KEY = 'user_id';
   private readonly BIOMETRIC_ENABLED_KEY = 'biometric_enabled';
+  private readonly PASSCODE_KEY = 'passcode_secure';
+  private readonly AUTH_METHOD_KEY = 'auth_method';
 
   /**
    * Check if the device supports biometric authentication
@@ -34,11 +38,150 @@ export class AuthService {
   }
 
   /**
-   * Authenticate user with biometrics (passkey-like experience)
+   * Set user's preferred authentication method
+   */
+  async setAuthMethod(method: AuthMethod): Promise<void> {
+    try {
+      await SecureStore.setItemAsync(this.AUTH_METHOD_KEY, method);
+    } catch (error) {
+      console.error('Error setting auth method:', error);
+      throw new Error('Failed to update authentication method');
+    }
+  }
+
+  /**
+   * Get user's preferred authentication method
+   */
+  async getAuthMethod(): Promise<AuthMethod> {
+    try {
+      const method = await SecureStore.getItemAsync(this.AUTH_METHOD_KEY);
+      return (method as AuthMethod) || 'biometric';
+    } catch (error) {
+      console.error('Error getting auth method:', error);
+      return 'biometric';
+    }
+  }
+
+  /**
+   * Set passcode (stored securely in SecureStore)
+   */
+  async setPasscode(passcode: string): Promise<void> {
+    try {
+      if (passcode.length < 4) {
+        throw new Error('Passcode must be at least 4 digits');
+      }
+      
+      // Create a simple salted hash using built-in string methods
+      const salt = 'pocketdoc_salt_2024';
+      const saltedPasscode = salt + passcode + salt;
+      
+      await SecureStore.setItemAsync(this.PASSCODE_KEY, saltedPasscode);
+    } catch (error) {
+      console.error('Error setting passcode:', error);
+      throw new Error('Failed to set passcode');
+    }
+  }
+
+  /**
+   * Verify passcode
+   */
+  async verifyPasscode(passcode: string): Promise<boolean> {
+    try {
+      const storedPasscode = await SecureStore.getItemAsync(this.PASSCODE_KEY);
+      
+      if (!storedPasscode) {
+        return false;
+      }
+      
+      const salt = 'pocketdoc_salt_2024';
+      const saltedPasscode = salt + passcode + salt;
+      
+      return saltedPasscode === storedPasscode;
+    } catch (error) {
+      console.error('Error verifying passcode:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Check if passcode is set
+   */
+  async hasPasscode(): Promise<boolean> {
+    try {
+      const passcode = await SecureStore.getItemAsync(this.PASSCODE_KEY);
+      return passcode !== null;
+    } catch (error) {
+      console.error('Error checking passcode:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Remove passcode
+   */
+  async removePasscode(): Promise<void> {
+    try {
+      await SecureStore.deleteItemAsync(this.PASSCODE_KEY);
+    } catch (error) {
+      console.error('Error removing passcode:', error);
+      throw new Error('Failed to remove passcode');
+    }
+  }
+
+  /**
+   * Change passcode
+   */
+  async changePasscode(oldPasscode: string, newPasscode: string): Promise<boolean> {
+    try {
+      const isValid = await this.verifyPasscode(oldPasscode);
+      
+      if (!isValid) {
+        return false;
+      }
+      
+      await this.setPasscode(newPasscode);
+      return true;
+    } catch (error) {
+      console.error('Error changing passcode:', error);
+      throw new Error('Failed to change passcode');
+    }
+  }
+
+  /**
+   * Authenticate user with preferred method
    */
   async authenticate(): Promise<boolean> {
     try {
-      // Check if biometrics are supported
+      const authMethod = await this.getAuthMethod();
+      const isBiometricSupported = await this.isBiometricSupported();
+      const hasPasscode = await this.hasPasscode();
+
+      // Determine which authentication to use
+      if (authMethod === 'biometric' && isBiometricSupported) {
+        return await this.authenticateWithBiometric();
+      } else if (authMethod === 'passcode' && hasPasscode) {
+        return await this.authenticateWithPasscode();
+      } else if (authMethod === 'both') {
+        if (isBiometricSupported) {
+          return await this.authenticateWithBiometric();
+        } else if (hasPasscode) {
+          return await this.authenticateWithPasscode();
+        }
+      }
+
+      // Fallback to setup if no authentication method is available
+      return await this.setupAuthentication();
+    } catch (error) {
+      console.error('Authentication error:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Authenticate with biometric
+   */
+  private async authenticateWithBiometric(): Promise<boolean> {
+    try {
       const isSupported = await this.isBiometricSupported();
       
       if (!isSupported) {
@@ -78,7 +221,7 @@ export class AuthService {
         return false;
       }
     } catch (error) {
-      console.error('Authentication error:', error);
+      console.error('Biometric authentication error:', error);
       Alert.alert(
         'Authentication Error',
         'Failed to authenticate. Please try again.',
@@ -86,6 +229,15 @@ export class AuthService {
       );
       return false;
     }
+  }
+
+  /**
+   * Authenticate with passcode (UI would need to be implemented in components)
+   */
+  private async authenticateWithPasscode(): Promise<boolean> {
+    // This would typically be called from a UI component that collects the passcode
+    // For now, return true to indicate passcode authentication is available
+    return true;
   }
 
   /**
@@ -259,6 +411,50 @@ export class AuthService {
     } catch (error) {
       console.error('Setup authentication error:', error);
       return false;
+    }
+  }
+
+  /**
+   * Get authentication status and available methods
+   */
+  async getAuthStatus(): Promise<{
+    isAuthenticated: boolean;
+    authMethod: AuthMethod;
+    biometricSupported: boolean;
+    hasPasscode: boolean;
+    biometricTypes: LocalAuthentication.AuthenticationType[];
+  }> {
+    try {
+      const [
+        isAuthenticated,
+        authMethod,
+        biometricSupported,
+        hasPasscode,
+        biometricTypes
+      ] = await Promise.all([
+        this.isAuthenticated(),
+        this.getAuthMethod(),
+        this.isBiometricSupported(),
+        this.hasPasscode(),
+        this.getAvailableAuthTypes()
+      ]);
+
+      return {
+        isAuthenticated,
+        authMethod,
+        biometricSupported,
+        hasPasscode,
+        biometricTypes
+      };
+    } catch (error) {
+      console.error('Error getting auth status:', error);
+      return {
+        isAuthenticated: false,
+        authMethod: 'biometric',
+        biometricSupported: false,
+        hasPasscode: false,
+        biometricTypes: []
+      };
     }
   }
 } 

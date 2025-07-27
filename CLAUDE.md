@@ -1,341 +1,317 @@
-# CLAUDE.md - PocketDoc Privacy Scanner Development Guide
+# CLAUDE.md - Pocket docs Development Guide for Claude 4
 
-**Always reference this guide for all PocketDoc development sessions**
+**Essential guidance for all Pocket docs development sessions**
+
+## 🔄 **MANDATORY WORKFLOW FOR ALL CLAUDE SESSIONS**
+
+**CRITICAL**: Before implementing ANY feature or responding to development requests, Claude MUST follow this exact sequence:
+
+### **Step 1: Context Foundation** 📋
+1. **Read PRD.md FIRST** - Understand product requirements, business goals, and feature scope
+2. **Read PLANNING.md SECOND** - Understand technical architecture, system design, and implementation strategy  
+3. **Read TASKS.md THIRD** - Understand current implementation status, active tasks, and priorities
+
+### **Step 2: Context Analysis** 🔍
+- Compare current implementation against documented requirements
+- Identify which phase/milestone the request relates to
+- Understand dependencies and architectural constraints
+- Verify alignment with MVP scope and documented patterns
+
+### **Step 3: Implementation** 💻
+- Follow documented architecture patterns (MVVM + Repository)
+- Respect current strengths and avoid regressions
+- Implement according to priority levels in TASKS.md
+- Maintain code quality standards defined in this document
+
+### **Why This Workflow Matters** ⚠️
+- **PRD.md** = WHAT to build (requirements, scope, features)
+- **PLANNING.md** = HOW to build it (architecture, technology decisions)  
+- **TASKS.md** = WHERE we are NOW (status, priorities, next steps)
+- **CLAUDE.md** = DEVELOPMENT STANDARDS (patterns, guidelines, quality)
+
+**Without this context, Claude may:**
+- ❌ Implement features outside MVP scope
+- ❌ Violate architectural patterns
+- ❌ Break existing functionality
+- ❌ Work on wrong priorities
+- ❌ Miss critical dependencies
 
 ---
 
 ## Document Responsibilities
 
-| Document | Purpose | Updates |
-|----------|---------|---------|
-| **PRD.md** | 📋 Product requirements + Business goals | 📌 Static reference |
-| **PLANNING.md** | 🗺️ Strategic architecture + Planning | 📌 Static reference |
-| **CLAUDE.md** | 📘 **Development guidance + Technical specs** | 📌 **Static reference** |
-| **TASKS.md** | ✅ Current status + Active tasks | 🔄 Updated regularly |
-
-**This document (CLAUDE.md)** contains development priorities, technical architecture, performance targets, and implementation guidance. Reference this for "how to implement features and what standards to meet."
+| Document | Purpose | Updates | Read Order |
+|----------|---------|---------|------------|
+| **PRD.md** | 📋 Product requirements + Business goals | 📌 Static reference | **1st - ALWAYS** |
+| **PLANNING.md** | 🗺️ Strategic architecture + Planning | 📌 Static reference | **2nd - ALWAYS** |
+| **TASKS.md** | ✅ Current status + Active tasks | 🔄 Updated regularly | **3rd - ALWAYS** |
+| **CLAUDE.md** | 📘 **Development guidance + Technical specs** | 📌 **Static reference** | **Reference** |
 
 ---
 
-## Project Overview
+## Project Constraints & MVP Scope
 
-**PocketDoc** is a privacy-first document scanner focused on delivering professional-grade document digitization without compromising user privacy. All data remains on the user's device with zero cloud dependencies.
+**PocketDoc** is a privacy-first, local-only document management app with strict MVP focus.
 
-**Core Value Proposition**: "Adobe Scan, but your documents never leave your device"
+**Hard Constraints:**
+- 3-screen maximum design (Library, Upload, Settings)
+- No cloud sync or external services
+- Local-only processing and storage
+- iOS priority, Android support in architecture
+- Single-level categorization only
+- No premium features or monetization in MVP
+
+**Technology Stack:**
+- React Native 0.72+
+- SQLite database
+- Expo file system
+- React Context for state
+- React Navigation (tabs + stack)
 
 ---
 
-## Development Context & Constraints
+## Architecture Principles
 
-*For current implementation status, see TASKS.md*
-
----
-
-## Technical Architecture
-
-### Technology Stack
+### **MVVM with Repository Pattern**
 ```
-Frontend: React Native + Expo Managed Workflow
-OCR Engine: ML Kit (Android) / VisionKit (iOS) 
-Storage: SQLite + Expo SecureStore (encrypted)
-Authentication: Expo LocalAuthentication (Face ID/Touch ID/Fingerprint)
-Image Processing: React Native camera and image libraries
-Search: Local FTS (Full-Text Search) implementation
-State Management: React Context (current) 
-Navigation: Expo Router with tab navigation
-UI Framework: Custom components (RevolutCard, RevolutText, etc.)
+Presentation Layer ←→ Business Logic Layer ←→ Data Layer
+(Screens/Components)   (Services/ViewModels)    (Repositories/SQLite)
 ```
 
-### Performance Targets
-- **App launch**: < 2 seconds cold start
-- **Document capture**: < 3 seconds from camera to preview  
-- **OCR processing**: < 5 seconds for standard document
-- **Search response**: < 500ms for local queries
-- **Storage efficiency**: < 5MB per document average
-- **OCR accuracy**: 90%+ for typed text, 70%+ for handwritten text (85%+ average)
+### **Core Services Structure**
+- `DocumentService` - Document CRUD operations
+- `OCRService` - Text extraction and search indexing
+- `SecurityService` - Authentication and encryption
+- `StorageService` - File system operations
+- `DatabaseService` - SQLite operations
 
-### Quality Standards
-- **Crash rate**: < 0.5% of user sessions
-- **Edge detection**: 95%+ accuracy for standard documents
-- **Storage encryption**: AES-256 for all document data
-- **Battery optimization**: Minimal background processing
-- **Memory management**: Efficient handling of large images
-
----
-
-## Key Development Priorities
-
-### Phase 1: Core Scanning Enhancement
-**Priority**: Critical for MVP success
-
-1. **Real OCR Integration**
-   - Replace simulated OCR with ML Kit (Android) / VisionKit (iOS)
-   - Implement confidence scoring and error handling
-   - Add multi-language support (English, Spanish, French, German)
-   - Target: 90%+ accuracy for typed text, 70%+ for handwritten text (85%+ average)
-
-2. **Professional Image Processing**
-   - Edge detection and automatic document boundary detection
-   - Perspective correction for skewed documents
-   - Image enhancement (brightness, contrast, sharpness)
-   - Multi-page document support
-
-3. **Smart Auto-Categorization**
-   - Detect document types: receipts, invoices, business cards, contracts, IDs
-   - Generate intelligent document titles based on content
-   - Auto-tag based on document analysis
-   - Content-aware organization suggestions
-
-### Phase 2: Premium Features & Monetization
-**Priority**: Required for revenue generation
-
-1. **Subscription System**
-   - Implement in-app purchases with RevenueCat
-   - Free tier: 50 documents maximum
-   - Premium tier: $2.99/month or $24.99/year
-   - Feature gating and upgrade prompts
-
-2. **Advanced Organization**
-   - Custom categories and nested folders  
-   - Smart collections based on rules
-   - Bulk operations and batch processing
-   - Advanced search with filters and regular expressions
-
-3. **Professional Export**
-   - Multiple format options (PDF, images, text)
-   - PDF with OCR layer for searchability
-   - Batch export functionality
-   - Professional sharing options
-
-### Phase 3: Performance & Polish
-**Priority**: Essential for App Store success
-
-1. **Performance Optimization**
-   - Optimize image processing workflows
-   - Implement lazy loading for large document collections
-   - Background processing for OCR operations
-   - Memory management for image handling
-
-2. **UI/UX Enhancement**
-   - Professional scanning interface with manual controls
-   - Improved document viewer with zoom/pan/rotate
-   - Better onboarding flow (target: 2 minutes to first scan)
-   - Accessibility improvements (screen reader support)
-
----
-
-## Development Guidelines
-
-### Code Quality Standards
-- **TypeScript**: Strict type checking, no `any` types
-- **Error Handling**: Comprehensive try-catch blocks with user-friendly messages
-- **Performance**: Profile memory usage and processing time for image operations
-- **Security**: Validate all file inputs, encrypt sensitive data
-- **Privacy**: Ensure zero external data transmission
-- **Testing**: Unit tests for business logic, integration tests for OCR workflows
-
-### Security Requirements
-- **Local-only processing**: All OCR and AI processing on-device
-- **Data encryption**: AES-256 for all stored document data
-- **File validation**: Comprehensive security checks for uploaded files
-- **Biometric authentication**: Required for app access
-- **Privacy indicators**: Clear UI showing "Local Only" status
-- **No telemetry**: Zero analytics or crash reporting to external services
-
-### Performance Guidelines
-- **Image optimization**: Compress images while maintaining OCR quality
-- **Background processing**: Use background queues for OCR operations
-- **Lazy loading**: Load document thumbnails on demand
-- **Memory management**: Release large image objects promptly
-- **Search optimization**: Use FTS indices for fast text search
-- **Battery efficiency**: Minimize camera and processor usage
-
----
-
-## Current Implementation Details
-
-### Document Data Model
-```typescript
-interface Document {
-  id: string;
-  title: string;
-  description: string;
-  tags: string[];
-  filePath: string;
-  fileType: 'image' | 'pdf';
-  fileSize: number;
-  extractedText?: string;
-  ocrConfidence?: number;
-  category?: string;
-  createdAt: Date;
-  modifiedAt: Date;
-  isFavorite?: boolean;
-}
+### **File Storage Strategy**
+```
+/Documents/PocketDoc/
+├── documents/     # Original files
+├── thumbnails/    # Generated previews
+└── temp/         # Auto-cleanup
 ```
 
-### OCR Service Interface
-```typescript
-interface OCRResult {
-  text: string;
-  confidence: number;
-  blocks: TextBlock[];
-  processingTime: number;
-  imageSize: { width: number; height: number };
-}
-```
+---
 
-### Database Schema
+## Development Standards
+
+### **Code Quality (Non-Negotiable)**
+- **TypeScript Strict**: No `any` types allowed
+- **Error Handling**: Comprehensive try-catch with user-friendly messages
+- **Privacy First**: No external data transmission in any feature
+- **Performance**: Meet targets defined in PLANNING.md
+- **Accessibility**: VoiceOver/TalkBack support required
+
+### **Component Architecture**
+- **Reusable UI Components**: `/components/ui/`
+- **Screen Components**: `/app/(tabs)/`
+- **Service Layer**: `/services/`
+- **Type Definitions**: `/types/`
+
+### **State Management**
+- **Global State**: React Context (as currently implemented)
+- **Local State**: useState for component-specific state
+- **Derived State**: useMemo for computed values
+- **Side Effects**: useEffect with proper cleanup
+
+---
+
+## UX/UI Standards (Mandatory)
+
+### **Design System Constraints**
+- **Spacing Scale**: xs(4px) → sm(8px) → md(16px) → lg(20px) → xl(32px)
+- **Typography**: H2(24px), H6(14px), Body2(13px), Caption(10-12px), Micro(9px)
+- **Touch Targets**: 44px minimum for primary actions, 36px for secondary
+- **Grid System**: 2 columns for documents, 8px gaps between items
+- **Card Aspect**: 1:1.2 ratio for document cards (reduced from 1:1.3)
+
+### **Header Consistency (All Screens)**
+Every screen must use the same header template:
+- Padding: lg horizontal, md vertical
+- Bottom border for visual separation
+- Title + subtitle pattern
+- Optional right-side action
+
+### **Performance Requirements**
+- **Search bars**: 36px height (reduced from 44px for space efficiency)
+- **Document cards**: Use spacing.sm (8px) for compact layouts
+- **FlatList optimization**: Required for document lists
+- **Image optimization**: Proper thumbnail generation and caching
+
+### **Accessibility Requirements**
+- **Minimum contrast**: 4.5:1 for primary text, 3:1 for secondary
+- **Accessibility labels**: Descriptive and contextual
+- **Touch targets**: Meet platform guidelines
+- **Screen reader**: Full VoiceOver/TalkBack support
+
+---
+
+## Database Schema (Essential)
+
+### **Core Tables**
 ```sql
-CREATE TABLE documents (
-  id TEXT PRIMARY KEY,
-  title TEXT NOT NULL,
-  description TEXT,
-  tags TEXT, -- JSON array
-  filePath TEXT NOT NULL,
-  fileType TEXT NOT NULL,
-  fileSize INTEGER,
-  extractedText TEXT,
-  ocrConfidence REAL,
-  category TEXT,
-  createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-  modifiedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-  isFavorite INTEGER DEFAULT 0
-);
+documents (id, title, description, category_id, file_path, thumbnail_path, 
+          file_type, file_size, extracted_text, created_at, updated_at)
 
-CREATE VIRTUAL TABLE documents_fts USING fts5(
-  title, description, extractedText, content=documents
-);
+categories (id, name, color, icon, created_at)
+
+search_index (id, document_id, keyword, frequency)
+```
+
+### **Performance Indexes**
+- `idx_search_keyword` on search_index.keyword
+- `idx_document_category` on documents.category_id
+- `idx_document_created` on documents.created_at
+
+---
+
+## Error Handling Patterns
+
+### **Service Layer**
+Always return structured responses:
+```typescript
+{ success: boolean, data?: any, error?: string, code?: string }
+```
+
+### **UI Layer**
+- **Toast messages**: Non-critical errors
+- **Modal dialogs**: Critical errors requiring user action
+- **Inline validation**: Form errors
+- **Graceful degradation**: When features unavailable
+
+### **Common Error Types**
+- `OCR_FAILED`: Text extraction unsuccessful
+- `STORAGE_FULL`: Insufficient device storage
+- `PERMISSION_DENIED`: Camera/storage access denied
+- `FILE_CORRUPT`: Document file corrupted
+- `AUTH_REQUIRED`: Authentication needed
+
+---
+
+## Performance Targets
+
+### **MVP Requirements**
+- **App launch**: < 3 seconds
+- **Document processing**: < 10 seconds per document
+- **Search response**: < 2 seconds
+- **Memory usage**: < 150MB average
+- **Crash rate**: < 1%
+
+### **Optimization Priorities**
+1. **Image processing**: Proper thumbnail generation and disposal
+2. **Database queries**: Use prepared statements and indexes
+3. **Search performance**: Debounced search with result caching
+4. **Memory management**: Release large objects immediately
+
+---
+
+## Security Implementation
+
+### **Authentication Flow**
+```
+App Launch → Auth Check → [Biometric/Passcode] → Main App
+```
+
+### **Data Protection**
+- **Database**: SQLCipher for encrypted storage
+- **Files**: Platform-native encryption (iOS File Protection, Android Keystore)
+- **Sensitive Data**: React Native Keychain
+- **Runtime**: Encrypt sensitive data in memory when possible
+
+### **Privacy Measures**
+- No network requests (except app updates)
+- No analytics or tracking
+- Local processing only
+- Secure file permissions
+- App backgrounding protection
+
+---
+
+## Navigation Structure
+
+### **Bottom Tab (Primary)**
+```
+Library (Home) → Document grid with search
+Upload → 4 upload methods (camera, scan, gallery, PDF)
+Settings → Security, appearance, storage, about
+```
+
+### **Stack Navigation (Secondary)**
+- Document detail modals
+- Authentication screens
+- Category management
+- Full document viewer
+
+---
+
+## Development Workflow
+
+### **Git Strategy**
+- `main` (production ready)
+- `develop` (integration branch) 
+- `feature/*` (feature branches)
+- `hotfix/*` (critical fixes)
+
+### **Commit Format**
+```
+type(scope): description
+feat(library): add document pagination
+fix(ocr): resolve memory leak
 ```
 
 ---
 
-## Integration Points
+## Testing Requirements
 
-### OCR Service Enhancement
-**Current**: Simulated OCR with mock data
-**Target**: Real ML Kit/VisionKit integration
+### **Coverage Areas**
+- **Unit Tests**: Service layer business logic
+- **Integration Tests**: Database operations, file storage, OCR
+- **Performance Tests**: Memory usage, query performance, image processing
+- **Accessibility Tests**: Screen reader support, contrast ratios
 
-**Implementation Notes**:
-- Replace `services/ocrService.ts` with real ML Kit implementation
-- Maintain existing interface for backward compatibility
-- Add confidence scoring and error handling
-- Implement language detection and multi-language support
-
-### Premium Feature Integration
-**Current**: No monetization
-**Target**: RevenueCat subscription management
-
-**Implementation Notes**:
-- Add RevenueCat SDK to project dependencies
-- Implement subscription status checking
-- Add feature gating throughout the app
-- Create upgrade prompts and paywall screens
-
-### Image Processing Pipeline
-**Current**: Basic camera capture
-**Target**: Professional scanning with enhancement
-
-**Implementation Notes**:
-- Integrate document edge detection library
-- Add perspective correction algorithms  
-- Implement image enhancement filters
-- Create manual camera controls for professional mode
+### **Testing Priorities**
+1. Core document CRUD operations
+2. Search functionality with large datasets
+3. OCR text extraction accuracy
+4. Authentication and security flows
+5. File storage and cleanup
 
 ---
 
-## App Store Preparation
+## Claude 4 Development Guidelines
 
-### ASO (App Store Optimization)
-**Target Keywords**: "privacy scanner", "document scan", "OCR privacy", "local scanner"
+### **Always Follow This Approach:**
+1. **Context First**: Read PRD → PLANNING → TASKS before coding
+2. **MVP Scope**: Stay within documented boundaries
+3. **Architecture Compliance**: Follow MVVM pattern and service layer
+4. **Privacy Protection**: Ensure no external data transmission
+5. **Performance Focus**: Meet documented targets
+6. **Quality Standards**: TypeScript strict, comprehensive error handling
+7. **Testing Coverage**: Include tests for new functionality
+8. **Documentation**: Update relevant docs for architectural changes
 
-**Screenshots Required**:
-1. Professional scanning interface with edge detection
-2. Document library showing organized documents
-3. Search interface with instant results
-4. Privacy indicators showing "Local Only" status
-5. Premium features comparison
+### **Key Decision Points:**
+- Does this align with MVP scope in PRD.md?
+- Is this privacy-compliant (local-only)?
+- Does this meet performance targets?
+- Is proper error handling included?
+- Are TypeScript types properly defined?
+- Is this accessible and maintainable?
 
-**App Description Focus**:
-- Privacy-first messaging
-- Professional scanning quality
-- Local-only operation
-- Business/professional use cases
-
-### Quality Assurance
-**Testing Requirements**:
-- OCR accuracy testing across document types
-- Performance testing on older devices
-- Security testing for data encryption
-- Privacy verification (no external network calls)
-- Accessibility testing with screen readers
-
----
-
-## Common Development Tasks
-
-### Adding New Document Categories
-1. Update auto-categorization logic in `aiMetadata.ts`
-2. Add category icons and colors in theme files
-3. Update database schema if needed
-4. Add category filters to search interface
-
-### Implementing New Premium Features
-1. Add feature flag checking in relevant components
-2. Create upgrade prompts for free users
-3. Update subscription status logic
-4. Add feature to premium paywall screen
-
-### Optimizing Performance
-1. Profile image processing operations
-2. Implement background queues for heavy operations
-3. Add lazy loading for large lists
-4. Optimize database queries with proper indexing
-
-### Enhancing OCR Accuracy
-1. Fine-tune ML Kit/VisionKit parameters
-2. Implement image preprocessing for better OCR
-3. Add confidence-based quality scoring
-4. Implement manual text correction interfaces
+### **🚨 Development Session Checklist**
+Before coding, verify:
+- [ ] ✅ Read PRD.md for requirements context
+- [ ] ✅ Read PLANNING.md for architecture context  
+- [ ] ✅ Read TASKS.md for current status and priorities
+- [ ] ✅ Identified correct phase/milestone
+- [ ] ✅ Understood architectural constraints
+- [ ] ✅ Verified MVP scope alignment
 
 ---
 
-## Troubleshooting Guide
-
-### Common OCR Issues
-- **Low confidence scores**: Implement image enhancement before OCR
-- **Poor text extraction**: Check image quality and lighting
-- **Multi-language problems**: Ensure proper language detection
-- **Performance issues**: Implement background processing
-
-### Camera Integration Problems
-- **Permission issues**: Handle camera permission gracefully
-- **Preview quality**: Optimize camera settings for document scanning
-- **Auto-focus problems**: Implement manual focus controls
-- **Memory leaks**: Properly dispose of camera resources
-
-### Database Performance
-- **Slow search**: Implement FTS indices properly
-- **Large document collections**: Add pagination and lazy loading
-- **Storage space**: Implement document compression and cleanup
-
----
-
-## Success Metrics to Track
-
-### Technical Metrics
-- OCR processing time and accuracy
-- App launch time and responsiveness  
-- Search query response time
-- Crash rates and error frequencies
-- Battery usage during scanning sessions
-
-### User Experience Metrics
-- Time from app open to first successful scan
-- Document organization efficiency
-- Search success rates
-- Premium feature adoption
-- User retention and engagement
-
----
-
-This guide should be referenced for all development decisions to ensure alignment with product goals, technical constraints, and user experience requirements. Always prioritize privacy, performance, and professional scanning quality in implementation decisions. 
+*Document Version: 3.0*  
+*Last Updated: Current*  
+*Aligned with: PRD.md v1.0, PLANNING.md v1.0, TASKS.md v2.0*  
+*Status: Essential Development Guide for Claude 4* 

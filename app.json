@@ -22,7 +22,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.pocketdoc.app",
-      "buildNumber": "3",
+      "buildNumber": "4",
       "infoPlist": {
         "NSCameraUsageDescription": "Pocket Doc needs camera access to capture document photos for your personal document library. All processing is done locally on your device for maximum privacy.",
         "NSPhotoLibraryUsageDescription": "Pocket Doc needs photo library access to select and upload images as documents. No data is shared externally - everything stays on your device.",

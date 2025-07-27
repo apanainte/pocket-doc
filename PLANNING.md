@@ -1,4 +1,4 @@
-# PLANNING.md - PocketDoc Privacy Scanner Project Plan
+# PLANNING.md - Pocket Doc - Strategic Architecture & Planning
 
 **Strategic planning and architecture overview for PocketDoc development**
 
@@ -15,357 +15,421 @@
 
 **This document (PLANNING.md)** contains strategic vision, system architecture, technology decisions, and resource planning. Reference this for "how we're building it and why these technical choices."
 
----
+## Technology Stack
 
-## Project Vision & Strategy
+### Cross-Platform Framework
+**Primary Choice: React Native**
+- **Rationale**: Single codebase for iOS/Android, strong ecosystem, excellent performance
+- **iOS Priority**: Native modules for iOS-specific features, optimized builds
+- **Android Support**: Maintained compatibility through shared architecture
 
-### Mission Statement
-Create the most trusted document scanner for privacy-conscious users by delivering professional-grade scanning capabilities with absolute data privacy through local-only processing and storage.
-
-### Strategic Objectives
-- **Privacy Leadership**: Establish PocketDoc as the premier privacy-first alternative to cloud-dependent scanners
-- **Professional Quality**: Match or exceed Adobe Scan's scanning quality while maintaining complete privacy
-- **Market Penetration**: Achieve 25,000 downloads and 5,000+ monthly active users within 12 months
-- **Revenue Generation**: Achieve $50,000 ARR through freemium model (2,000 premium subscribers)
-- **Brand Trust**: Build reputation as the most secure document scanner available
-
-### Core Principles
-- **Local-First**: All processing happens on device, zero cloud dependencies
-- **Privacy by Design**: No data collection, transmission, or external storage
-- **Professional Quality**: Enterprise-grade scanning capabilities
-- **User Control**: Complete ownership of data and functionality
-- **Transparency**: Open about what data is processed and where
-
----
-
-## System Architecture
-
-### Privacy-First Architecture Overview
-
+### Core Libraries & Dependencies
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    PocketDoc Privacy Scanner                │
-│                        (Local Only)                        │
-├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────────────┐    ┌─────────────────────────────┐ │
-│  │     Camera          │    │    Document Viewer          │ │
-│  │   Capture Layer     │    │   & Editor Layer            │ │
-│  └─────────────────────┘    └─────────────────────────────┘ │
-├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────────────┐    ┌─────────────────────────────┐ │
-│  │  Image Processing   │    │      OCR Engine             │ │
-│  │  (Edge Detection)   │    │   (ML Kit/VisionKit)       │ │
-│  └─────────────────────┘    └─────────────────────────────┘ │
-├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────────────┐    ┌─────────────────────────────┐ │
-│  │  AI Categorization  │    │    Search Engine            │ │
-│  │    (Local AI)       │    │   (FTS SQLite)              │ │
-│  └─────────────────────┘    └─────────────────────────────┘ │
-├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────────────┐    ┌─────────────────────────────┐ │
-│  │  Encrypted Storage  │    │  Biometric Security         │ │
-│  │   (SQLite + AES)    │    │  (Face/Touch/Fingerprint)  │ │
-│  └─────────────────────┘    └─────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
+├── React Native 0.72+
+├── React Navigation 6 (Tab + Stack navigation)
+├── React Native Vision Camera (Camera functionality)
+├── React Native Document Scanner (Document scanning)
+├── React Native OCR (Text extraction)
+├── React Native Keychain (Secure storage)
+├── React Native Biometrics (Touch/Face ID)
+├── React Native FS (File system operations)
+├── SQLite (Local database)
+└── React Native Vector Icons (UI icons)
 ```
 
-### Data Flow Architecture
+### Alternative Stack (Native Development)
+**iOS**: Swift + UIKit/SwiftUI
+**Android**: Kotlin + Jetpack Compose
+- Consider if React Native limitations emerge during development
+
+## Application Architecture
+
+### Overall Architecture Pattern
+**MVVM (Model-View-ViewModel) with Repository Pattern**
 
 ```
-Camera Capture → Image Enhancement → Edge Detection → OCR Processing
-      ↓
-Document Storage ← AI Categorization ← Text Analysis ← OCR Results
-      ↓
-Search Index ← Metadata Generation ← Smart Tagging ← Category Detection
-      ↓
-User Interface ← Search Results ← Query Processing ← User Input
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Presentation  │    │   Business      │    │   Data          │
+│   Layer         │    │   Logic Layer   │    │   Layer         │
+├─────────────────┤    ├─────────────────┤    ├─────────────────┤
+│ • Screens       │◄──►│ • ViewModels    │◄──►│ • Repositories  │
+│ • Components    │    │ • Services      │    │ • Data Sources  │
+│ • Navigation    │    │ • Validators    │    │ • Models        │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
-### Security Architecture
-
+### Folder Structure
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Security Layers                          │
-├─────────────────────────────────────────────────────────────┤
-│  Device Authentication (Face ID / Touch ID / Fingerprint)   │
-├─────────────────────────────────────────────────────────────┤
-│  Application Security (App-level biometric verification)    │
-├─────────────────────────────────────────────────────────────┤
-│  Data Encryption (AES-256 for all stored documents)         │
-├─────────────────────────────────────────────────────────────┤
-│  File Validation (Security scanning for malicious content)  │
-├─────────────────────────────────────────────────────────────┤
-│  Privacy Protection (Zero external data transmission)       │
-└─────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Technology Stack & Architecture Decisions
-
-### Frontend Framework
-**React Native + Expo Managed Workflow**
-- **Rationale**: Cross-platform development with single codebase
-- **Benefits**: Faster development, easier deployment, extensive library ecosystem
-- **Trade-offs**: Some performance limitations vs native, dependency on Expo ecosystem
-- **Decision**: Optimal for MVP and rapid iteration
-
-### UI/Styling Framework
-**NativeWind (Tailwind CSS for React Native)**
-- **Rationale**: Utility-first CSS framework adapted for React Native
-- **Benefits**: Rapid UI development, consistent design system, reduced custom CSS
-- **Implementation**: Tailwind-style classes for React Native components
-- **Decision**: Enables fast, consistent UI development with familiar syntax
-
-### OCR & Image Processing
-**ML Kit (Android) / VisionKit (iOS)**
-- **Rationale**: Native performance, offline processing, platform optimization
-- **Benefits**: High accuracy, fast processing, no external dependencies
-- **Trade-offs**: Platform-specific implementation required
-- **Decision**: Best balance of accuracy, privacy, and performance
-
-### Data Storage
-**SQLite + Expo SecureStore**
-- **Rationale**: Local database with encryption support
-- **Benefits**: Fast queries, offline operation, encrypted storage
-- **Trade-offs**: Device storage limitations, no cloud sync
-- **Decision**: Aligns with privacy-first architecture
-
-### Authentication
-**Expo LocalAuthentication**
-- **Rationale**: Native biometric authentication support
-- **Benefits**: Secure device-based authentication, consistent UX
-- **Trade-offs**: Device-dependent capabilities
-- **Decision**: Optimal for privacy-focused app
-
-### State Management
-**React Context + useReducer**
-- **Rationale**: Built-in React state management, no external dependencies
-- **Benefits**: Simple implementation, good performance for app size
-- **Trade-offs**: May need migration to Redux if app complexity grows
-- **Decision**: Sufficient for current requirements
-
-### Navigation
-**Expo Router**
-- **Rationale**: File-based routing system for React Native
-- **Benefits**: Intuitive routing, type-safe navigation, modern patterns
-- **Trade-offs**: Newer technology, smaller community
-- **Decision**: Aligns with modern React Native development
-
----
-
-## Required Tools & Development Environment
-
-### Development Tools
-```bash
-# Core Development
-Node.js (v18+)                    # JavaScript runtime
-npm/yarn                          # Package management
-Expo CLI                          # React Native development platform
-React Native CLI                  # Native development tools
-
-# Code Quality
-TypeScript                        # Type safety
-ESLint                           # Code linting
-Prettier                         # Code formatting
-Husky                            # Git hooks
-
-# Design & UI
-NativeWind                       # Tailwind for React Native
-Expo Vector Icons                # Icon library
-React Native Svg                 # SVG support
-
-# Development Environment
-VS Code                          # Code editor
-iOS Simulator (macOS only)      # iOS testing
-Android Studio                  # Android development and testing
+src/
+├── components/          # Reusable UI components
+│   ├── common/         # Generic components
+│   ├── forms/          # Form-specific components
+│   └── document/       # Document-related components
+├── screens/            # Main application screens
+│   ├── Library/        # Home screen with document grid
+│   ├── Upload/         # Document upload screen
+│   └── Settings/       # App settings screen
+├── navigation/         # Navigation configuration
+├── services/           # Business logic services
+│   ├── DocumentService.js
+│   ├── OCRService.js
+│   ├── StorageService.js
+│   └── SecurityService.js
+├── repositories/       # Data access layer
+├── models/            # Data models and types
+├── utils/             # Helper functions
+├── constants/         # App constants
+└── assets/            # Images, fonts, etc.
 ```
 
-### Platform-Specific Requirements
+## Data Architecture
 
-**iOS Development (macOS required)**:
-```bash
-Xcode (v14+)                     # iOS development environment
-iOS Simulator                   # iOS device simulation
-CocoaPods                        # iOS dependency management
-Apple Developer Account          # App Store distribution ($99/year)
+### Local Database Schema (SQLite)
+
+#### Documents Table
+```sql
+CREATE TABLE documents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    description TEXT,
+    category_id INTEGER,
+    file_path TEXT NOT NULL,
+    thumbnail_path TEXT,
+    file_type TEXT NOT NULL,
+    file_size INTEGER,
+    extracted_text TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (category_id) REFERENCES categories (id)
+);
 ```
 
-**Android Development**:
-```bash
-Android Studio                  # Android development environment
-Android SDK (API 26+)           # Target Android versions
-Java JDK (v11+)                 # Android build requirements
-Google Play Console Account     # Play Store distribution ($25 one-time)
+#### Categories Table
+```sql
+CREATE TABLE categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    color TEXT DEFAULT '#007AFF',
+    icon TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 ```
 
-### Additional Tools
-```bash
-# Image Processing
-Sharp/ImageMagick               # Image optimization (development)
-Figma/Sketch                   # UI design and prototyping
+#### Search Index Table
+```sql
+CREATE TABLE search_index (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    document_id INTEGER NOT NULL,
+    keyword TEXT NOT NULL,
+    frequency INTEGER DEFAULT 1,
+    FOREIGN KEY (document_id) REFERENCES documents (id)
+);
 
-# Testing
-Jest                           # Unit testing
-React Native Testing Library   # Component testing
-Detox                         # E2E testing (optional)
-
-# Analytics & Monitoring
-Sentry                        # Error tracking and monitoring
-Flipper                       # React Native debugging
-
-# Deployment
-EAS Build                     # Expo build service
-EAS Submit                    # App store submission
+CREATE INDEX idx_search_keyword ON search_index (keyword);
+CREATE INDEX idx_document_category ON documents (category_id);
 ```
 
----
+### File Storage Strategy
+```
+/Documents/PocketDoc/
+├── documents/          # Original document files
+│   ├── {doc_id}.pdf
+│   ├── {doc_id}.jpg
+│   └── {doc_id}.png
+├── thumbnails/         # Generated thumbnails
+│   ├── {doc_id}_thumb.jpg
+│   └── {doc_id}_thumb.png
+└── temp/              # Temporary processing files
+```
 
-## Dependencies & Prerequisites
+### Database Reliability Strategy (MVP Approach)
 
-### Core Dependencies
-```json
-{
-  "expo": "~51.0.0",
-  "react-native": "~0.74.0",
-  "typescript": "^5.3.0",
-  "nativewind": "^2.0.11",
-  "tailwindcss": "^3.3.0",
-  "expo-local-authentication": "~14.0.0",
-  "expo-secure-store": "~13.0.0",
-  "expo-sqlite": "~14.0.0",
-  "expo-camera": "~15.0.0",
-  "expo-image-picker": "~15.0.0",
-  "react-native-vision-camera": "^3.0.0"
+#### Core Principle: Incremental Improvements Over Complex Solutions
+This MVP prioritizes simple, proven approaches over enterprise-grade complexity.
+
+#### Strategic Approach
+- **Enhanced Migration Detection**: Improve existing migration logic with better logging and validation
+- **Simple Backup Strategy**: Weekly JSON exports to predictable file locations  
+- **User-Centric Recovery**: Clear options for users when data issues occur
+- **Proportional Engineering**: Solutions sized appropriately for a 3-screen MVP app
+
+#### Migration Enhancement Strategy
+- Explicit database file paths for consistency across app updates
+- Step-by-step migration validation with comprehensive logging
+- Automatic fallback to backup data when migration fails
+- Post-migration integrity checks to ensure data completeness
+
+#### Backup & Recovery Architecture
+- Automated weekly backups exported as simple JSON files
+- User-accessible manual export functionality for peace of mind
+- Clear recovery options presented when database issues are detected
+- Progressive recovery: automatic → backup restore → manual export → fresh start
+
+#### Implementation Priorities
+1. **Fix Current Issues**: Enhance existing migration detection and validation
+2. **Add Safety Net**: Simple automated backups and recovery options
+3. **User Transparency**: Clear communication about data status and recovery options
+4. **Maintainability**: Keep solutions simple enough for small development team to maintain
+
+## Screen Architecture
+
+### 1. Library Screen (Home)
+```javascript
+LibraryScreen/
+├── components/
+│   ├── SearchBar.js
+│   ├── DocumentGrid.js
+│   ├── DocumentCard.js
+│   ├── CategoryFilter.js
+│   └── EmptyState.js
+├── hooks/
+│   ├── useDocuments.js
+│   ├── useSearch.js
+│   └── useCategories.js
+└── LibraryScreen.js
+```
+
+**Key Features:**
+- Search bar with real-time filtering
+- Grid layout with document thumbnails
+- Category filtering (single-level)
+- Pull-to-refresh functionality
+- Infinite scroll for large document sets
+
+### 2. Upload Screen
+```javascript
+UploadScreen/
+├── components/
+│   ├── UploadOptions.js
+│   ├── CameraCapture.js
+│   ├── DocumentScanner.js
+│   ├── FileUploader.js
+│   └── ProcessingIndicator.js
+├── hooks/
+│   ├── useCamera.js
+│   ├── useDocumentScan.js
+│   └── useFileUpload.js
+└── UploadScreen.js
+```
+
+**Upload Flow:**
+1. User selects upload method (Take Photo, Upload Image, Scan Document, Upload PDF)
+2. Capture/select document with validation
+3. Process document (OCR, thumbnail generation, metadata extraction)
+4. Save to database and file system
+5. Return to Library screen
+
+### 3. Settings Screen
+```javascript
+SettingsScreen/
+├── components/
+│   ├── SecuritySettings.js
+│   ├── AppearanceSettings.js
+│   ├── StorageInfo.js
+│   └── AboutSection.js
+└── SettingsScreen.js
+```
+
+**Settings Categories:**
+- Security (Passcode, Biometrics)
+- Appearance (Dark mode)
+- Storage (Usage info, cleanup)
+- About (Version, privacy policy)
+
+## Core Services Architecture
+
+### DocumentService
+```javascript
+class DocumentService {
+  async createDocument(file, metadata)
+  async updateDocument(id, updates)
+  async deleteDocument(id)
+  async getDocuments(filters)
+  async searchDocuments(query)
+  async generateThumbnail(filePath)
 }
 ```
 
-### Development Dependencies
-```json
-{
-  "eslint": "^8.0.0",
-  "prettier": "^3.0.0",
-  "husky": "^8.0.0",
-  "jest": "^29.0.0",
-  "@testing-library/react-native": "^12.0.0"
+### OCRService (Simplified - Single Engine)
+```typescript
+class OCRService {
+  // Single MLKit engine only - no complex fallbacks
+  async recognizeText(imageUri: string): Promise<OCRResult>
+  async isAvailable(): Promise<boolean>
+  
+  // No fake content generation
+  // Clear error handling with manual entry option
+}
+
+interface OCRResult {
+  text: string;           // Real extracted text only
+  confidence: number;     // Actual MLKit confidence
+  requiresManualEntry?: boolean; // True if OCR failed
+}
+
+// REMOVED COMPLEXITY:
+// - VisionKit fallback engine (340 lines)
+// - Fake text generation methods (200+ lines)  
+// - Dual-engine management (300+ lines)
+// - Complex initialization (100+ lines)
+// Target: 1,342 → 150 lines (89% reduction)
+```
+
+### StorageService
+```javascript
+class StorageService {
+  async saveFile(file, directory)
+  async deleteFile(path)
+  async getStorageInfo()
+  async cleanup()
 }
 ```
 
-### Future Premium Dependencies
-```json
-{
-  "react-native-purchases": "^7.0.0",
-  "react-native-document-scanner": "^2.0.0",
-  "react-native-pdf": "^6.0.0"
+### SecurityService
+```javascript
+class SecurityService {
+  async setupPasscode(code)
+  async verifyPasscode(code)
+  async enableBiometrics()
+  async authenticate()
+  async encryptData(data)
+  async decryptData(encryptedData)
 }
 ```
 
----
+## Navigation Architecture
 
-## Infrastructure & Deployment
-
-### Development Infrastructure
-- **Version Control**: Git with GitHub
-- **CI/CD**: GitHub Actions for automated testing
-- **Build Service**: EAS Build for iOS/Android builds
-- **Distribution**: EAS Submit for app store deployment
-- **Monitoring**: Sentry for error tracking and performance monitoring
-
-### Production Infrastructure
-- **App Stores**: iOS App Store, Google Play Store
-- **Analytics**: Privacy-focused analytics (no user tracking)
-- **Support**: In-app support system with local FAQ
-- **Updates**: Over-the-air updates via Expo Updates
-- **Backup**: No cloud backup (local-only by design)
-
-### Security Infrastructure
-- **Code Scanning**: GitHub CodeQL for security analysis
-- **Dependency Scanning**: Automated vulnerability scanning
-- **Privacy Audit**: Regular security assessments
-- **Compliance**: SOC 2 Type I assessment (if needed for enterprise)
-
----
-
-## Resource Requirements
-
-### Human Resources
-```
-Lead React Native Developer (1.0 FTE)
-- 5+ years React Native experience
-- iOS/Android deployment experience
-- OCR/ML integration experience
-
-UI/UX Designer (0.5 FTE)
-- Mobile-first design expertise
-- Privacy-focused UX experience
-- Figma/Sketch proficiency
-
-QA/Security Tester (0.25 FTE)
-- Mobile app testing experience
-- Security testing knowledge
-- Privacy assessment capabilities
+### Bottom Tab Navigation
+```javascript
+const TabNavigator = createBottomTabNavigator({
+  Library: {
+    screen: LibraryStack,
+    options: {
+      tabBarIcon: 'folder',
+      title: 'Library'
+    }
+  },
+  Upload: {
+    screen: UploadScreen,
+    options: {
+      tabBarIcon: 'plus',
+      title: 'Upload'
+    }
+  },
+  Settings: {
+    screen: SettingsScreen,
+    options: {
+      tabBarIcon: 'settings',
+      title: 'Settings'
+    }
+  }
+});
 ```
 
-### Financial Resources
-```
-Development Team: $150,000 (4 months)
-Apple Developer Program: $99/year
-Google Play Console: $25 (one-time)
-Design Tools & Assets: $5,000
-Testing Devices: $3,000
-Legal/Security Audit: $5,000
-Marketing & Launch: $10,000
-Total Initial Investment: $173,124
+### Stack Navigation (for modals/detail views)
+```javascript
+const LibraryStack = createStackNavigator({
+  LibraryHome: LibraryScreen,
+  DocumentDetail: DocumentDetailScreen,
+  DocumentEdit: DocumentEditScreen
+});
 ```
 
-### Timeline Resources
+## Performance Strategy
+
+### Optimization Techniques
+1. **Lazy Loading**: Documents loaded in batches
+2. **Image Optimization**: Compressed thumbnails, lazy image loading
+3. **Search Optimization**: Indexed search with debounced queries
+4. **Memory Management**: Cleanup unused resources, image caching
+5. **Database Optimization**: Proper indexing, query optimization
+
+### Caching Strategy
+- **Document Thumbnails**: Persistent cache with LRU eviction
+- **Search Results**: In-memory cache for recent queries
+- **OCR Results**: Stored in database, no re-processing
+
+## Security Implementation
+
+### Data Encryption
+- **Database**: SQLCipher for encrypted SQLite
+- **Files**: iOS File Protection, Android Keystore encryption
+- **Sensitive Data**: React Native Keychain for secure storage
+
+### Authentication Flow
 ```
-Phase 1: Core Scanning Enhancement (6 weeks)
-Phase 2: Premium Features & Monetization (4 weeks)
-Phase 3: Performance & Polish (4 weeks)
-Phase 4: Premium Features & Launch (2 weeks)
-Total Development Time: 16 weeks (4 months)
+App Launch → Check Auth Status → Biometric/Passcode → Main App
+                ↓
+           Unauthenticated → Auth Screen → Success → Main App
 ```
 
----
+### Privacy Measures
+- No network requests (except updates)
+- No analytics or tracking
+- Local processing only
+- Secure file permissions
 
-## Risk Assessment & Mitigation
+## Development Phases
+
+### Phase 1: Core Foundation (Week 1-2)
+- Project setup and navigation
+- Basic screen structure
+- Database schema implementation
+- File storage system
+
+### Phase 2: Document Management (Week 3-4)
+- Upload functionality (all 5 methods)
+- Basic document display
+- File operations (save, delete)
+- Thumbnail generation
+
+### Phase 3: Search & OCR (Week 5-6)
+- OCR integration
+- Search functionality
+- Text extraction and indexing
+- Search optimization
+
+### Phase 4: Security & Polish (Week 7-8)
+- Authentication implementation
+- Security hardening
+- UI polish and dark mode
+- Performance optimization
+
+### Phase 5: Testing & Deployment (Week 9-10)
+- Comprehensive testing
+- iOS App Store preparation
+- Android Play Store preparation
+- Final optimizations
+
+## Risk Mitigation
 
 ### Technical Risks
-- **OCR Accuracy**: Mitigation through extensive testing and fallback options
-- **Performance**: Optimization for older devices and memory management
-- **Battery Usage**: Efficient image processing and background operation limits
-- **Storage Limitations**: Compression and storage monitoring tools
+- **OCR Accuracy**: Implement fallback text editing
+- **Performance**: Progressive loading, optimization
+- **Storage Limits**: Implement storage management
+- **Cross-Platform Issues**: Platform-specific code where needed
 
-### Business Risks
-- **Market Competition**: Differentiation through privacy focus and professional quality
-- **User Adoption**: Target privacy-conscious communities and professional users
-- **Revenue Generation**: Proven freemium model with clear value proposition
-- **Platform Changes**: Stay current with iOS/Android updates and requirements
+### Development Risks
+- **Timeline**: Prioritize iOS, defer Android if needed
+- **Complexity**: Keep MVP scope strict
+- **Testing**: Automated testing from early phases
 
-### Security Risks
-- **Data Breaches**: Local-only architecture eliminates external attack vectors
-- **Device Theft**: Biometric authentication and encryption protect data
-- **Malicious Files**: Comprehensive file validation and security scanning
-- **Privacy Violations**: Regular audits and transparent privacy practices
+## Success Metrics
 
----
+### Technical KPIs
+- App launch time: <3 seconds
+- Document processing: <10 seconds
+- Search response: <2 seconds
+- Crash rate: <1%
+- Memory usage: <150MB average
 
-## Success Metrics & KPIs
-
-### Development Metrics
-- **Code Quality**: 90%+ test coverage, zero critical bugs
-- **Performance**: Meet all performance targets defined in CLAUDE.md
-- **Security**: Pass independent security assessment
-- **Privacy**: Zero external data transmission verified
-
-### Business Metrics
-- **User Acquisition**: 25,000 downloads, 5,000+ monthly active users within 12 months
-- **Revenue**: $50,000 ARR through premium subscriptions (2,000 premium subscribers)
-- **Conversion Rate**: 8% free-to-premium conversion
-- **App Store Performance**: 4.5+ star rating, featured in privacy categories
-- **Market Position**: Top 10 in "Privacy Scanner" keyword searches
+### User Experience KPIs
+- Upload success rate: >95%
+- Search accuracy: >90%
+- User retention: Track weekly active users
+- Feature adoption: Monitor usage of each upload method
 
 ---
-
-This planning document provides the strategic foundation and architectural decisions for PocketDoc development. For product requirements, refer to PRD.md. For technical implementation details, refer to CLAUDE.md. For specific tasks and milestones, refer to TASKS.md.
+*Document Version: 1.0*  
+*Last Updated: July 2025*  
+*Status: Draft - Architecture Planning*

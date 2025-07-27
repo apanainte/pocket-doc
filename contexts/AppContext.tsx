@@ -63,6 +63,18 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       // Database should already be initialized by root layout, but ensure it's ready
       await databaseService.initialize();
       
+      // Fix thumbnail and file paths after database migration
+      console.log('Checking and fixing file paths...');
+      try {
+        const pathStats = await databaseService.fixAllFilePaths();
+        console.log('File path recovery stats:', pathStats);
+        if (pathStats.documentsWithIssues.length > 0) {
+          console.warn('Some documents have unresolved file issues:', pathStats.documentsWithIssues);
+        }
+      } catch (error) {
+        console.warn('File path recovery failed:', error);
+      }
+      
       // Check authentication status
       const isAuthenticated = await authService.isAuthenticated();
       

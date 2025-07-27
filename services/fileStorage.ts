@@ -1,4 +1,5 @@
 import * as FileSystem from 'expo-file-system';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { Document } from '@/types/document';
 
 export class FileStorageService {
@@ -67,11 +68,6 @@ export class FileStorageService {
 
   private async createThumbnail(imageUri: string, documentId: string): Promise<string> {
     try {
-      // For now, we'll use the same image as thumbnail
-      // In a production app, you'd want to resize the image here
-      const thumbnailFileName = `${documentId}_thumb.jpg`;
-      const thumbnailUri = `${this.documentsDirectory}thumbnails/${thumbnailFileName}`;
-      
       // Create thumbnails directory if it doesn't exist
       const thumbnailsDir = `${this.documentsDirectory}thumbnails/`;
       const dirInfo = await FileSystem.getInfoAsync(thumbnailsDir);
@@ -79,9 +75,24 @@ export class FileStorageService {
         await FileSystem.makeDirectoryAsync(thumbnailsDir, { intermediates: true });
       }
 
-      // Copy image as thumbnail (in production, you'd resize it)
-      await FileSystem.copyAsync({
-        from: imageUri,
+      // Generate thumbnail using expo-image-manipulator
+      const thumbnailFileName = `${documentId}_thumb.jpg`;
+      const thumbnailUri = `${thumbnailsDir}${thumbnailFileName}`;
+      
+      // Resize image to create thumbnail (300x300 max, maintaining aspect ratio)
+      const manipResult = await ImageManipulator.manipulateAsync(
+        imageUri,
+        [{ resize: { width: 300, height: 300 } }],
+        { 
+          compress: 0.8, 
+          format: ImageManipulator.SaveFormat.JPEG,
+          base64: false 
+        }
+      );
+
+      // Move the manipulated image to our thumbnails directory
+      await FileSystem.moveAsync({
+        from: manipResult.uri,
         to: thumbnailUri
       });
 
@@ -127,6 +138,54 @@ export class FileStorageService {
     } catch (error) {
       console.error('Failed to delete document files:', error);
     }
+  }
+
+  // Check if a thumbnail file exists and is accessible
+  async validateThumbnailPath(thumbnailPath: string): Promise<boolean> {
+    try {
+      if (!thumbnailPath) return false;
+      const fileInfo = await FileSystem.getInfoAsync(thumbnailPath);
+      return fileInfo.exists;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  // Get the expected thumbnail path for a document ID
+  getExpectedThumbnailPath(documentId: string): string {
+    return `${this.documentsDirectory}thumbnails/${documentId}_thumb.jpg`;
+  }
+
+  // Regenerate thumbnail from main document file
+  async regenerateThumbnail(documentUri: string, documentId: string): Promise<string | null> {
+    try {
+      // Check if main document file exists
+      const mainFileExists = await FileSystem.getInfoAsync(documentUri);
+      if (!mainFileExists.exists) {
+        console.warn('Cannot regenerate thumbnail: main file does not exist:', documentUri);
+        return null;
+      }
+
+      // Only regenerate for image types
+      if (!documentUri.toLowerCase().match(/\.(jpg|jpeg|png)$/)) {
+        return null;
+      }
+
+      console.log('Regenerating thumbnail for:', documentId);
+      return await this.createThumbnail(documentUri, documentId);
+    } catch (error) {
+      console.error('Failed to regenerate thumbnail:', error);
+      return null;
+    }
+  }
+
+  // Get current directories for diagnostics
+  getCurrentDocumentsDirectory(): string {
+    return this.documentsDirectory;
+  }
+
+  getCurrentThumbnailsDirectory(): string {
+    return `${this.documentsDirectory}thumbnails/`;
   }
 
   async validateFileSize(uri: string, maxSizeMB: number = 10): Promise<boolean> {

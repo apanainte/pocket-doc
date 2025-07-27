@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
-import { Upload, Search, Library, User } from 'lucide-react-native';
+import { Upload, Library, Settings } from 'lucide-react-native';
 import SimpleAuthScreen from '@/components/SimpleAuthScreen';
 import * as SecureStore from 'expo-secure-store';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -95,23 +95,11 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="search"
+        name="settings"
         options={{
-          title: 'Search',
+          title: 'Settings',
           tabBarIcon: ({ size, color }) => (
-            <Search 
-              size={size} 
-              color={color}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profile',
-          tabBarIcon: ({ size, color }) => (
-            <User 
+            <Settings 
               size={size} 
               color={color}
             />

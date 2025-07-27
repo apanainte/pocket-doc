@@ -58,7 +58,6 @@ class DocumentScannerService {
       const defaultOptions: ScanDocumentOptions = {
         maxNumDocuments: 1,
         croppedImageQuality: 100, // Maximum quality for OCR
-        enableTorch: false,
         responseType: ResponseType.ImageFilePath,
       };
 
@@ -67,7 +66,7 @@ class DocumentScannerService {
       const result = await DocumentScanner.scanDocument(scanOptions);
       
       if (result.status === 'success' && result.scannedImages) {
-        const scanResult = await this.processScanResult(result, scanOptions.documentName);
+        const scanResult = await this.processScanResult(result, scanOptions.documentName || 'Document');
         
         completeOperation(operationId, true, { 
           pageCount: scanResult.pageCount,
@@ -206,9 +205,8 @@ class DocumentScannerService {
     return {
       maxNumDocuments: 1,
       croppedImageQuality: 100, // Maximum quality for best OCR results
-      enableTorch: false, // Let user control torch manually
       documentName: 'OCR Document',
-      responseType: 'imageFilePath'
+      responseType: ResponseType.ImageFilePath as ResponseType
     };
   }
 

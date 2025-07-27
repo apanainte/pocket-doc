@@ -21,4 +21,4 @@ export { RevolutButton } from './ui/RevolutButton';
 export { RevolutCard } from './ui/RevolutCard';
 export { RevolutInput } from './ui/RevolutInput';
 export { RevolutText } from './ui/RevolutText';
-export { ExpandableText } from './ui/ExpandableText'; 
+export { ExpandableText } from './ui/ExpandableText'; export { FullDocumentViewer } from './FullDocumentViewer';

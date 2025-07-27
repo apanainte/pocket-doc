@@ -10,10 +10,9 @@ import {
   TextInput,
   Alert,
   Dimensions,
-  SafeAreaView
-} from 'react-native';
-import { Document } from '@/types/document';
-import { X, CreditCard as Edit2, Save, FileText, Image as ImageIcon, Trash2 } from 'lucide-react-native';
+  SafeAreaView } from 'react-native';
+import { Document, Category } from '@/types/document';
+import { X, CreditCard as Edit2, Save, FileText, Image as ImageIcon, Trash2, Folder, ChevronDown } from 'lucide-react-native';
 import { ExpandableText } from '@/components/ui/ExpandableText';
 
 const { width, height } = Dimensions.get('window');
@@ -24,6 +23,7 @@ interface DocumentDetailModalProps {
   onClose: () => void;
   onUpdate: (id: string, updates: Partial<Document>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  categories?: Category[];
 }
 
 export function DocumentDetailModal({ 
@@ -31,21 +31,29 @@ export function DocumentDetailModal({
   visible, 
   onClose, 
   onUpdate, 
-  onDelete 
+  onDelete,
+  categories = []
 }: DocumentDetailModalProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState('');
   const [editedDescription, setEditedDescription] = useState('');
   const [editedTags, setEditedTags] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
+  
 
   React.useEffect(() => {
     if (document) {
       setEditedTitle(document.title);
       setEditedDescription(document.description);
       setEditedTags(document.tags.join(', '));
+      
+      // Find and set the current category
+      const currentCategory = categories.find(cat => cat.id === document.categoryId) || null;
+      setSelectedCategory(currentCategory);
     }
-  }, [document]);
+  }, [document, categories]);
 
   const handleSave = async () => {
     if (!document) return;
@@ -57,7 +65,8 @@ export function DocumentDetailModal({
       await onUpdate(document.id, {
         title: editedTitle,
         description: editedDescription,
-        tags
+        tags,
+        categoryId: selectedCategory?.id
       });
       
       setIsEditing(false);
@@ -67,6 +76,10 @@ export function DocumentDetailModal({
       setLoading(false);
     }
   };
+
+  
+
+  
 
   const handleDelete = () => {
     if (!document) return;
@@ -94,168 +107,233 @@ export function DocumentDetailModal({
 
   if (!document) return null;
 
-  return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <X size={24} color="#007AFF" />
-          </TouchableOpacity>
-          
-          <Text style={styles.headerTitle}>Document Details</Text>
-          
-          <TouchableOpacity 
-            onPress={isEditing ? handleSave : () => setIsEditing(true)}
-            style={styles.actionButton}
-            disabled={loading}
-          >
-            {isEditing ? (
-              <Save size={24} color="#007AFF" />
-            ) : (
-              <Edit2 size={24} color="#007AFF" />
-            )}
-          </TouchableOpacity>
-        </View>
+  // Find current category for display
+  const currentCategory = categories.find(cat => cat.id === document.categoryId);
 
-        <ScrollView style={styles.content}>
-          <View style={styles.thumbnailContainer}>
-            {document.thumbnail ? (
-              <Image 
-                source={{ uri: document.thumbnail }} 
-                style={styles.thumbnail}
-                resizeMode="cover"
-              />
-            ) : (
-              <View style={styles.placeholderThumbnail}>
-                {document.type === 'pdf' ? (
-                  <FileText size={48} color="#8E8E93" />
+  return (
+    <><Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
+        <SafeAreaView style={styles.container}>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <X size={24} color="#007AFF" />
+            </TouchableOpacity>
+            
+            <Text style={styles.headerTitle}>Document Details</Text>
+            
+            <TouchableOpacity 
+              onPress={isEditing ? handleSave : () => setIsEditing(true)}
+              style={styles.actionButton}
+              disabled={loading}
+            >
+              {isEditing ? (
+                <Save size={24} color="#007AFF" />
+              ) : (
+                <Edit2 size={24} color="#007AFF" />
+              )}
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.content}>
+            <View style={styles.form}>
+              <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Title</Text>
+                {isEditing ? (
+                  <TextInput
+                    style={styles.input}
+                    value={editedTitle}
+                    onChangeText={setEditedTitle}
+                    placeholder="Enter document title"
+                  />
                 ) : (
-                  <ImageIcon size={48} color="#8E8E93" />
+                  <Text style={styles.value}>{document.title}</Text>
                 )}
               </View>
-            )}
-          </View>
 
-          <View style={styles.form}>
-            <View style={styles.fieldContainer}>
-              <Text style={styles.label}>Title</Text>
-              {isEditing ? (
-                <TextInput
-                  style={styles.input}
-                  value={editedTitle}
-                  onChangeText={setEditedTitle}
-                  placeholder="Enter document title"
-                />
-              ) : (
-                <Text style={styles.value}>{document.title}</Text>
-              )}
-            </View>
-
-            <View style={styles.fieldContainer}>
-              <Text style={styles.label}>Description</Text>
-              {isEditing ? (
-                <TextInput
-                  style={[styles.input, styles.multilineInput]}
-                  value={editedDescription}
-                  onChangeText={setEditedDescription}
-                  placeholder="Enter document description"
-                  multiline
-                  numberOfLines={4}
-                />
-              ) : (
-                <ExpandableText
-                  text={document.description}
-                  variant="body1"
-                  numberOfLines={3}
-                  style={styles.expandableText}
-                />
-              )}
-            </View>
-
-            <View style={styles.fieldContainer}>
-              <Text style={styles.label}>Tags</Text>
-              {isEditing ? (
-                <TextInput
-                  style={styles.input}
-                  value={editedTags}
-                  onChangeText={setEditedTags}
-                  placeholder="Enter tags separated by commas"
-                />
-              ) : (
-                <View style={styles.tagsContainer}>
-                  {document.tags.map((tag, index) => (
-                    <View key={index} style={styles.tag}>
-                      <Text style={styles.tagText}>{tag}</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-            </View>
-
-            {/* Display extracted OCR text if available */}
-            {document.extractedText && (
               <View style={styles.fieldContainer}>
-                <Text style={styles.label}>Extracted Text</Text>
-                <View style={styles.extractedTextContainer}>
-                  <ExpandableText
-                    text={document.extractedText}
-                    variant="body2"
+                <Text style={styles.label}>Description</Text>
+                {isEditing ? (
+                  <TextInput
+                    style={[styles.input, styles.multilineInput]}
+                    value={editedDescription}
+                    onChangeText={setEditedDescription}
+                    placeholder="Enter document description"
+                    multiline
                     numberOfLines={4}
-                    style={styles.extractedText}
                   />
-                  {document.ocrData?.confidence && (
-                    <Text style={styles.ocrConfidence}>
-                      OCR Confidence: {Math.round(document.ocrData.confidence * 100)}%
-                    </Text>
-                  )}
-                </View>
+                ) : (
+                  <ExpandableText
+                    text={document.description}
+                    variant="body1"
+                    numberOfLines={3}
+                    style={styles.expandableText}
+                  />
+                )}
               </View>
-            )}
 
-            <View style={styles.metadataContainer}>
-              <View style={styles.metadataRow}>
-                <Text style={styles.metadataLabel}>Created</Text>
-                <Text style={styles.metadataValue}>
-                  {document.createdAt.toLocaleDateString()}
-                </Text>
+              {/* Category Section */}
+              <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Category</Text>
+                {isEditing ? (
+                  <>
+                    <TouchableOpacity
+                      onPress={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                      style={styles.categorySelector}
+                    >
+                      <View style={styles.categorySelectorContent}>
+                        {selectedCategory ? (
+                          <>
+                            <View style={[styles.categoryIcon, { backgroundColor: selectedCategory.color + '30' }]}>
+                              <Folder size={16} color={selectedCategory.color} />
+                            </View>
+                            <Text style={styles.categoryText}>
+                              {selectedCategory.name}
+                            </Text>
+                          </>
+                        ) : (
+                          <Text style={styles.placeholderText}>
+                            Select a category (optional)
+                          </Text>
+                        )}
+                      </View>
+                      <ChevronDown size={20} color="#8E8E93" />
+                    </TouchableOpacity>
+
+                    {showCategoryDropdown && (
+                      <View style={styles.categoryDropdown}>
+                        <ScrollView style={styles.categoryScrollView}>
+                          <TouchableOpacity
+                            onPress={() => {
+                              setSelectedCategory(null);
+                              setShowCategoryDropdown(false);
+                            }}
+                            style={styles.categoryOption}
+                          >
+                            <Text style={styles.categoryOptionText}>No Category</Text>
+                          </TouchableOpacity>
+                          {categories.map((category) => (
+                            <TouchableOpacity
+                              key={category.id}
+                              onPress={() => {
+                                setSelectedCategory(category);
+                                setShowCategoryDropdown(false);
+                              }}
+                              style={styles.categoryOption}
+                            >
+                              <View style={[styles.categoryIcon, { backgroundColor: category.color + '30' }]}>
+                                <Folder size={16} color={category.color} />
+                              </View>
+                              <Text style={styles.categoryOptionText}>
+                                {category.name}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    )}
+                  </>
+                ) : (
+                  <View style={styles.categoryDisplay}>
+                    {currentCategory ? (
+                      <>
+                        <View style={[styles.categoryIcon, { backgroundColor: currentCategory.color + '30' }]}>
+                          <Folder size={16} color={currentCategory.color} />
+                        </View>
+                        <Text style={styles.value}>
+                          {currentCategory.name}
+                        </Text>
+                      </>
+                    ) : (
+                      <Text style={styles.noCategoryText}>No category assigned</Text>
+                    )}
+                  </View>
+                )}
               </View>
-              <View style={styles.metadataRow}>
-                <Text style={styles.metadataLabel}>Type</Text>
-                <Text style={styles.metadataValue}>{document.type.toUpperCase()}</Text>
+
+              <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Tags</Text>
+                {isEditing ? (
+                  <TextInput
+                    style={styles.input}
+                    value={editedTags}
+                    onChangeText={setEditedTags}
+                    placeholder="Enter tags separated by commas"
+                  />
+                ) : (
+                  <View style={styles.tagsContainer}>
+                    {document.tags.map((tag, index) => (
+                      <View key={index} style={styles.tag}>
+                        <Text style={styles.tagText}>{tag}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
               </View>
-              {document.fileSize && (
+
+              {/* Display extracted OCR text if available */}
+              {document.extractedText && (
+                <View style={styles.fieldContainer}>
+                  <Text style={styles.label}>Extracted Text</Text>
+                  <View style={styles.extractedTextContainer}>
+                    <ExpandableText
+                      text={document.extractedText}
+                      variant="body2"
+                      numberOfLines={4}
+                      style={styles.extractedText}
+                    />
+                    {document.ocrData?.confidence && (
+                      <Text style={styles.ocrConfidence}>
+                        OCR Confidence: {Math.round(document.ocrData.confidence * 100)}%
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              )}
+
+              <View style={styles.metadataContainer}>
                 <View style={styles.metadataRow}>
-                  <Text style={styles.metadataLabel}>Size</Text>
+                  <Text style={styles.metadataLabel}>Created</Text>
                   <Text style={styles.metadataValue}>
-                    {document.fileSize < 1024 * 1024 
-                      ? `${(document.fileSize / 1024).toFixed(1)}KB`
-                      : `${(document.fileSize / (1024 * 1024)).toFixed(1)}MB`
-                    }
+                    {document.createdAt.toLocaleDateString()}
                   </Text>
                 </View>
-              )}
+                <View style={styles.metadataRow}>
+                  <Text style={styles.metadataLabel}>Type</Text>
+                  <Text style={styles.metadataValue}>{document.type.toUpperCase()}</Text>
+                </View>
+                {document.fileSize && (
+                  <View style={styles.metadataRow}>
+                    <Text style={styles.metadataLabel}>Size</Text>
+                    <Text style={styles.metadataValue}>
+                      {document.fileSize < 1024 * 1024 
+                        ? `${(document.fileSize / 1024).toFixed(1)}KB`
+                        : `${(document.fileSize / (1024 * 1024)).toFixed(1)}MB`
+                      }
+                    </Text>
+                  </View>
+                )}
+              </View>
             </View>
-          </View>
-        </ScrollView>
+          </ScrollView>
 
-        <View style={styles.footer}>
-          <TouchableOpacity 
-            onPress={handleDelete}
-            style={styles.deleteButton}
-          >
-            <Trash2 size={20} color="#FF3B30" />
-            <Text style={styles.deleteButtonText}>Delete</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    </Modal>
+          <View style={styles.footer}>
+            <TouchableOpacity 
+              onPress={handleDelete}
+              style={styles.deleteButton}
+            >
+              <Trash2 size={20} color="#FF3B30" />
+              <Text style={styles.deleteButtonText}>Delete</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </Modal>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: '#000000'
   },
   header: {
     flexDirection: 'row',
@@ -265,61 +343,43 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: '#1C1C1E',
     borderBottomWidth: 1,
-    borderBottomColor: '#2C2C2E',
+    borderBottomColor: '#2C2C2E'
   },
   closeButton: {
-    padding: 8,
+    padding: 8
   },
   headerTitle: {
     fontSize: 17,
     fontFamily: 'Inter-SemiBold',
-    color: '#FFFFFF',
+    color: '#FFFFFF'
   },
   actionButton: {
-    padding: 8,
+    padding: 8
   },
   content: {
-    flex: 1,
-  },
-  thumbnailContainer: {
-    width: '100%',
-    height: 200,
-    backgroundColor: '#1C1C1E',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  thumbnail: {
-    width: '100%',
-    height: '100%',
-  },
-  placeholderThumbnail: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#2C2C2E',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flex: 1
   },
   form: {
     backgroundColor: '#1C1C1E',
     marginTop: 16,
-    paddingHorizontal: 16,
+    paddingHorizontal: 16
   },
   fieldContainer: {
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#2C2C2E',
+    borderBottomColor: '#2C2C2E'
   },
   label: {
     fontSize: 14,
     fontFamily: 'Inter-Medium',
     color: '#8E8E93',
-    marginBottom: 8,
+    marginBottom: 8
   },
   value: {
     fontSize: 16,
     fontFamily: 'Inter-Regular',
     color: '#FFFFFF',
-    lineHeight: 22,
+    lineHeight: 22
   },
   input: {
     fontSize: 16,
@@ -330,15 +390,84 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: '#2C2C2E',
+    backgroundColor: '#2C2C2E'
   },
   multilineInput: {
     minHeight: 80,
-    textAlignVertical: 'top',
+    textAlignVertical: 'top'
+  },
+  categorySelector: {
+    borderWidth: 1,
+    borderColor: '#2C2C2E',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    backgroundColor: '#2C2C2E',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center'
+  },
+  categorySelectorContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1
+  },
+  categoryIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8
+  },
+  categoryText: {
+    fontSize: 16,
+    fontFamily: 'Inter-Regular',
+    color: '#FFFFFF'
+  },
+  placeholderText: {
+    fontSize: 16,
+    fontFamily: 'Inter-Regular',
+    color: '#8E8E93'
+  },
+  categoryDropdown: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#2C2C2E',
+    borderRadius: 8,
+    backgroundColor: '#2C2C2E',
+    maxHeight: 200
+  },
+  categoryScrollView: {
+    maxHeight: 200
+  },
+  categoryOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#3A3A3C'
+  },
+  categoryOptionText: {
+    fontSize: 16,
+    fontFamily: 'Inter-Regular',
+    color: '#FFFFFF',
+    marginLeft: 8
+  },
+  categoryDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center'
+  },
+  noCategoryText: {
+    fontSize: 16,
+    fontFamily: 'Inter-Regular',
+    color: '#8E8E93',
+    fontStyle: 'italic'
   },
   tagsContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexWrap: 'wrap'
   },
   tag: {
     backgroundColor: '#E8F4FD',
@@ -346,38 +475,38 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 6,
     marginRight: 8,
-    marginBottom: 8,
+    marginBottom: 8
   },
   tagText: {
     fontSize: 14,
     fontFamily: 'Inter-Medium',
-    color: '#007AFF',
+    color: '#007AFF'
   },
   metadataContainer: {
-    paddingTop: 16,
+    paddingTop: 16
   },
   metadataRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 8
   },
   metadataLabel: {
     fontSize: 14,
     fontFamily: 'Inter-Regular',
-    color: '#8E8E93',
+    color: '#8E8E93'
   },
   metadataValue: {
     fontSize: 14,
     fontFamily: 'Inter-Medium',
-    color: '#FFFFFF',
+    color: '#FFFFFF'
   },
   footer: {
     backgroundColor: '#1C1C1E',
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderTopWidth: 1,
-    borderTopColor: '#2C2C2E',
+    borderTopColor: '#2C2C2E'
   },
   deleteButton: {
     flexDirection: 'row',
@@ -387,19 +516,19 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#FFF5F5',
     borderWidth: 1,
-    borderColor: '#FFE5E5',
+    borderColor: '#FFE5E5'
   },
   deleteButtonText: {
     fontSize: 16,
     fontFamily: 'Inter-Medium',
     color: '#FF3B30',
-    marginLeft: 8,
+    marginLeft: 8
   },
   expandableText: {
     fontSize: 16,
     fontFamily: 'Inter-Regular',
     color: '#FFFFFF',
-    lineHeight: 22,
+    lineHeight: 22
   },
   extractedTextContainer: {
     backgroundColor: '#2C2C2E',
@@ -407,18 +536,18 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#3A3A3C',
-    marginTop: 8,
+    marginTop: 8
   },
   extractedText: {
     color: '#FFFFFF',
     fontSize: 14,
     lineHeight: 20,
-    fontFamily: 'Inter-Regular',
+    fontFamily: 'Inter-Regular'
   },
   ocrConfidence: {
     color: '#8E8E93',
     fontSize: 12,
     fontFamily: 'Inter-Regular',
-    marginTop: 8,
-  },
+    marginTop: 8
+  }
 });
