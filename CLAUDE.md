@@ -1,29 +1,29 @@
-# CLAUDE.md - Pocket docs Development Guide for Claude 4
+# CLAUDE.md — PocketDoc Development Guidance
 
-**Essential guidance for all Pocket docs development sessions**
+Essential guidance for development sessions, aligned with `PRD.md` and `PLANNING.md` architectural decisions.
 
-## 🔄 **MANDATORY WORKFLOW FOR ALL CLAUDE SESSIONS**
+## 🔄 Mandatory workflow for all development sessions
 
 **CRITICAL**: Before implementing ANY feature or responding to development requests, Claude MUST follow this exact sequence:
 
 ### **Step 1: Context Foundation** 📋
-1. **Read PRD.md FIRST** - Understand product requirements, business goals, and feature scope
-2. **Read PLANNING.md SECOND** - Understand technical architecture, system design, and implementation strategy  
-3. **Read TASKS.md THIRD** - Understand current implementation status, active tasks, and priorities
+1. Read `PRD.md` — requirements and scope
+2. Read `PLANNING.md` — architecture and decisions  
+3. Read `TASKS.md` — status and priorities
 
-### **Step 2: Context Analysis** 🔍
+### Step 2: Context analysis 🔍
 - Compare current implementation against documented requirements
 - Identify which phase/milestone the request relates to
 - Understand dependencies and architectural constraints
 - Verify alignment with MVP scope and documented patterns
 
-### **Step 3: Implementation** 💻
-- Follow documented architecture patterns (MVVM + Repository)
+### Step 3: Implementation 💻
+- Follow documented architecture patterns (modular services + contexts)
 - Respect current strengths and avoid regressions
 - Implement according to priority levels in TASKS.md
 - Maintain code quality standards defined in this document
 
-### **Why This Workflow Matters** ⚠️
+### Why this workflow matters ⚠️
 - **PRD.md** = WHAT to build (requirements, scope, features)
 - **PLANNING.md** = HOW to build it (architecture, technology decisions)  
 - **TASKS.md** = WHERE we are NOW (status, priorities, next steps)
@@ -38,150 +38,141 @@
 
 ---
 
-## Document Responsibilities
+## Document responsibilities
 
 | Document | Purpose | Updates | Read Order |
 |----------|---------|---------|------------|
 | **PRD.md** | 📋 Product requirements + Business goals | 📌 Static reference | **1st - ALWAYS** |
-| **PLANNING.md** | 🗺️ Strategic architecture + Planning | 📌 Static reference | **2nd - ALWAYS** |
+| **PLANNING.md** | 🗺️ Strategic architecture + decisions | 📌 Static reference | **2nd - ALWAYS** |
 | **TASKS.md** | ✅ Current status + Active tasks | 🔄 Updated regularly | **3rd - ALWAYS** |
 | **CLAUDE.md** | 📘 **Development guidance + Technical specs** | 📌 **Static reference** | **Reference** |
 
 ---
 
-## Project Constraints & MVP Scope
+## Project constraints & MVP scope
 
-**PocketDoc** is a privacy-first, local-only document management app with strict MVP focus.
+PocketDoc is a privacy‑first, local‑only document management app with strict MVP focus.
 
-**Hard Constraints:**
-- 3-screen maximum design (Library, Upload, Settings)
-- No cloud sync or external services
-- Local-only processing and storage
-- iOS priority, Android support in architecture
-- Single-level categorization only
-- No premium features or monetization in MVP
+Hard constraints:
+- iOS‑first (iOS 15+); Android later
+- No cloud sync/backups in MVP
+- All processing local; no analytics/tracking
+- Single category per document; starter templates
+- Export defaults per type (compiled for scans; original for imports)
 
-**Technology Stack:**
-- React Native 0.72+
-- SQLite database
-- Expo file system
-- React Context for state
-- React Navigation (tabs + stack)
-
----
-
-## Architecture Principles
-
-### **MVVM with Repository Pattern**
-```
-Presentation Layer ←→ Business Logic Layer ←→ Data Layer
-(Screens/Components)   (Services/ViewModels)    (Repositories/SQLite)
-```
-
-### **Core Services Structure**
-- `DocumentService` - Document CRUD operations
-- `OCRService` - Text extraction and search indexing
-- `SecurityService` - Authentication and encryption
-- `StorageService` - File system operations
-- `DatabaseService` - SQLite operations
-
-### **File Storage Strategy**
-```
-/Documents/PocketDoc/
-├── documents/     # Original files
-├── thumbnails/    # Generated previews
-└── temp/         # Auto-cleanup
-```
+Technology stack (locked for MVP):
+- Expo Managed React Native + EAS Build (iOS first)
+- `expo-sqlite` with FTS5 (MVP unencrypted)  
+- `react-native-document-scanner-plugin` (scan)
+- `expo-image-picker` (Photos)
+- `react-native-mlkit-ocr` (OCR, English)
+- `react-native-webview` (PDF viewing)
+- `pdf-lib` (compiled PDFs)
+- `react-native-fs` + `expo-file-system` (FS)
+- `react-native-aes-crypto` (AES‑256‑GCM) + `expo-secure-store` (keys)
 
 ---
 
-## Development Standards
+## Architecture principles
 
-### **Code Quality (Non-Negotiable)**
-- **TypeScript Strict**: No `any` types allowed
-- **Error Handling**: Comprehensive try-catch with user-friendly messages
-- **Privacy First**: No external data transmission in any feature
-- **Performance**: Meet targets defined in PLANNING.md
-- **Accessibility**: VoiceOver/TalkBack support required
+### Layering
+Presentation (screens/components) ←→ Services (business logic) ←→ Data (SQLite/FS)
+— Thin screens; logic lives in `services/` with strict, typed interfaces.  
+— App‑wide state via React Contexts; prefer local state for UI details.
 
-### **Component Architecture**
-- **Reusable UI Components**: `/components/ui/`
-- **Screen Components**: `/app/(tabs)/`
-- **Service Layer**: `/services/`
-- **Type Definitions**: `/types/`
+### Core services
+- `StorageService` — FS abstraction over `react-native-fs` + `expo-file-system`
+- `OcrService` — ML Kit integration, single‑worker queue hooks
+- `PdfService` — `pdf-lib` assembly; interfaces with raster helper for thumbs
+- `Database` — SQLite/FTS accessors and migrations
+- `Security` — App Lock, keys, encryption helpers
 
-### **State Management**
-- **Global State**: React Context (as currently implemented)
-- **Local State**: useState for component-specific state
-- **Derived State**: useMemo for computed values
-- **Side Effects**: useEffect with proper cleanup
-
----
-
-## UX/UI Standards (Mandatory)
-
-### **Design System Constraints**
-- **Spacing Scale**: xs(4px) → sm(8px) → md(16px) → lg(20px) → xl(32px)
-- **Typography**: H2(24px), H6(14px), Body2(13px), Caption(10-12px), Micro(9px)
-- **Touch Targets**: 44px minimum for primary actions, 36px for secondary
-- **Grid System**: 2 columns for documents, 8px gaps between items
-- **Card Aspect**: 1:1.2 ratio for document cards (reduced from 1:1.3)
-
-### **Header Consistency (All Screens)**
-Every screen must use the same header template:
-- Padding: lg horizontal, md vertical
-- Bottom border for visual separation
-- Title + subtitle pattern
-- Optional right-side action
-
-### **Performance Requirements**
-- **Search bars**: 36px height (reduced from 44px for space efficiency)
-- **Document cards**: Use spacing.sm (8px) for compact layouts
-- **FlatList optimization**: Required for document lists
-- **Image optimization**: Proper thumbnail generation and caching
-
-### **Accessibility Requirements**
-- **Minimum contrast**: 4.5:1 for primary text, 3:1 for secondary
-- **Accessibility labels**: Descriptive and contextual
-- **Touch targets**: Meet platform guidelines
-- **Screen reader**: Full VoiceOver/TalkBack support
-
----
-
-## Database Schema (Essential)
-
-### **Core Tables**
-```sql
-documents (id, title, description, category_id, file_path, thumbnail_path, 
-          file_type, file_size, extracted_text, created_at, updated_at)
-
-categories (id, name, color, icon, created_at)
-
-search_index (id, document_id, keyword, frequency)
+### File storage & encryption
+App sandbox layout:
 ```
-
-### **Performance Indexes**
-- `idx_search_keyword` on search_index.keyword
-- `idx_document_category` on documents.category_id
-- `idx_document_created` on documents.created_at
+/PocketDoc/
+  originals/   # Encrypted originals
+  compiled/    # Encrypted compiled PDFs
+  thumbs/      # Thumbnails (unencrypted)
+  temp/        # OCR rasters (ephemeral)
+```
+Encryption: AES‑256‑GCM; master key derived (Argon2/PBKDF2), wrapped in Keychain via `expo-secure-store`.  
+Delete rasters per page after OCR; optionally encrypt sensitive metadata with normalized shadows.
 
 ---
 
-## Error Handling Patterns
+## Development standards
 
-### **Service Layer**
-Always return structured responses:
+### Code quality (non‑negotiable)
+- TypeScript strict; no `any`
+- Fail visible, fail fast; structured errors
+- Privacy‑first: no external data transmission
+- Meet performance targets in `PLANNING.md`
+- Accessibility: touch ≥44×44pt; text ≥13–14pt; contrast ≥4.5:1; dark mode
+
+### Component architecture
+- Reusable UI: `/components/ui/`
+- Screens: `/app/(tabs)/`
+- Services: `/services/`
+- Types: `/types/`
+
+### State management
+- Global: React Contexts
+- Local: `useState`/`useReducer`
+- Derived: `useMemo`
+- Effects: `useEffect` with cleanup
+
+---
+
+## UX/UI standards (mandatory)
+
+### Design system
+- Respect `themes/` tokens; maintain consistent spacing/typography
+- Touch targets ≥44×44pt; consistent header template; skeleton loaders on lists
+
+### Header consistency
+- Title + optional subtitle; right‑side action when relevant
+- Bottom divider for separation; consistent paddings
+
+### Performance requirements
+- FlatList optimization (windowing, keyExtractor, getItemLayout when possible)
+- Thumbnails: lazy‑load with crossfade; cache; pre‑generate first page
+
+### Accessibility
+- Contrast ≥4.5:1; descriptive a11y labels; full VoiceOver coverage
+
+---
+
+## Database schema (essential)
+
+### Core tables (per PRD)
+```
+documents(id, title, category_id, created_at, updated_at, type(image|pdf), page_count,
+          file_uri_encrypted, favorite, size_bytes, status(IMPORTED|OCR_PARTIAL|OCR_DONE))
+pages(id, document_id, index, thumb_uri, status(PENDING|PROCESSING|DONE|FAILED), ocr_lang, text_encrypted?)
+fts_pages(page_id, content)  # MVP unencrypted
+categories(id, name, created_at)
+attributes(id, document_id, attribute_key, value, confidence)
+attribute_definitions(key, label, type(string|date|number), pattern, example)
+ocr_jobs(id, document_id, page_id, state, attempts, last_error)
+```
+Indexes: appropriate PK/FK; FTS5 virtual table for `fts_pages`.
+
+---
+
+## Error handling patterns
+
+### Service layer
+Return structured results or throw typed errors; never swallow errors. Prefer:
 ```typescript
-{ success: boolean, data?: any, error?: string, code?: string }
+type Result<T> = { ok: true; data: T } | { ok: false; code: string; message: string };
 ```
 
-### **UI Layer**
-- **Toast messages**: Non-critical errors
-- **Modal dialogs**: Critical errors requiring user action
-- **Inline validation**: Form errors
-- **Graceful degradation**: When features unavailable
+### UI layer
+- Toasts for non‑critical issues; inline validation; modal for blocking errors
+- Graceful degradation when features unavailable
 
-### **Common Error Types**
+### Common error types
 - `OCR_FAILED`: Text extraction unsuccessful
 - `STORAGE_FULL`: Insufficient device storage
 - `PERMISSION_DENIED`: Camera/storage access denied
@@ -190,71 +181,57 @@ Always return structured responses:
 
 ---
 
-## Performance Targets
+## Performance targets
 
-### **MVP Requirements**
-- **App launch**: < 3 seconds
-- **Document processing**: < 10 seconds per document
-- **Search response**: < 2 seconds
-- **Memory usage**: < 150MB average
-- **Crash rate**: < 1%
+### MVP requirements (from PRD/Planning)
+- Thumbnails visible ≤3s for large PDFs (≤50MB/≤50 pages)
+- Search responsive while OCR runs; results improve progressively
+- App launch <3s; search <2s; crash rate <1%; memory ~≤150MB avg
 
-### **Optimization Priorities**
-1. **Image processing**: Proper thumbnail generation and disposal
-2. **Database queries**: Use prepared statements and indexes
-3. **Search performance**: Debounced search with result caching
-4. **Memory management**: Release large objects immediately
+### Optimization priorities
+1. Thumbnail generation first; purge temp rasters immediately
+2. Prepared statements and proper indexes
+3. Debounced search; scoped queries (All/Category)
+4. Release large objects; avoid retaining bitmaps
 
 ---
 
-## Security Implementation
+## Security implementation
 
-### **Authentication Flow**
-```
-App Launch → Auth Check → [Biometric/Passcode] → Main App
-```
+### App Lock
+Biometric default; passcode fallback; auto‑lock after 3 min; soft haptics.
 
-### **Data Protection**
-- **Database**: SQLCipher for encrypted storage
-- **Files**: Platform-native encryption (iOS File Protection, Android Keystore)
-- **Sensitive Data**: React Native Keychain
-- **Runtime**: Encrypt sensitive data in memory when possible
+### Data protection
+- Files: AES‑256‑GCM for originals/compiled PDFs
+- Keys: derived master key wrapped via `expo-secure-store`
+- DB: FTS unencrypted in MVP; Phase 2 → SQLCipher for full DB
+- Metadata: encrypt sensitive fields where required; keep normalized shadows if needed
 
-### **Privacy Measures**
-- No network requests (except app updates)
-- No analytics or tracking
-- Local processing only
-- Secure file permissions
-- App backgrounding protection
+### Privacy measures
+- No network requests (except updates); no analytics/tracking
+- Local processing only; secure file permissions; sanitized logs (no OCR text or paths)
 
 ---
 
-## Navigation Structure
+## Navigation structure
 
-### **Bottom Tab (Primary)**
-```
-Library (Home) → Document grid with search
-Upload → 4 upload methods (camera, scan, gallery, PDF)
-Settings → Security, appearance, storage, about
-```
+### Tabs (primary)
+Home | + | Documents | Settings  
+Center “+” opens action sheet: Scan | Import Photos | Import PDF
 
-### **Stack Navigation (Secondary)**
-- Document detail modals
-- Authentication screens
-- Category management
-- Full document viewer
+### Stacks (secondary)
+- Document detail; full document viewer; auth screens
 
 ---
 
-## Development Workflow
+## Development workflow
 
-### **Git Strategy**
-- `main` (production ready)
-- `develop` (integration branch) 
-- `feature/*` (feature branches)
-- `hotfix/*` (critical fixes)
+### Git strategy
+- `main` — production
+- `redesign` — current working branch
+- `feature/*` — feature branches
 
-### **Commit Format**
+### Commit format
 ```
 type(scope): description
 feat(library): add document pagination
@@ -263,15 +240,15 @@ fix(ocr): resolve memory leak
 
 ---
 
-## Testing Requirements
+## Testing requirements
 
-### **Coverage Areas**
+### Coverage areas
 - **Unit Tests**: Service layer business logic
 - **Integration Tests**: Database operations, file storage, OCR
 - **Performance Tests**: Memory usage, query performance, image processing
 - **Accessibility Tests**: Screen reader support, contrast ratios
 
-### **Testing Priorities**
+### Testing priorities
 1. Core document CRUD operations
 2. Search functionality with large datasets
 3. OCR text extraction accuracy
@@ -280,9 +257,9 @@ fix(ocr): resolve memory leak
 
 ---
 
-## Claude 4 Development Guidelines
+## Development session guidelines
 
-### **Always Follow This Approach:**
+### Always follow this approach
 1. **Context First**: Read PRD → PLANNING → TASKS before coding
 2. **MVP Scope**: Stay within documented boundaries
 3. **Architecture Compliance**: Follow MVVM pattern and service layer
@@ -292,7 +269,7 @@ fix(ocr): resolve memory leak
 7. **Testing Coverage**: Include tests for new functionality
 8. **Documentation**: Update relevant docs for architectural changes
 
-### **Key Decision Points:**
+### Key decision points
 - Does this align with MVP scope in PRD.md?
 - Is this privacy-compliant (local-only)?
 - Does this meet performance targets?
@@ -300,7 +277,7 @@ fix(ocr): resolve memory leak
 - Are TypeScript types properly defined?
 - Is this accessible and maintainable?
 
-### **🚨 Development Session Checklist**
+### 🚨 Development session checklist
 Before coding, verify:
 - [ ] ✅ Read PRD.md for requirements context
 - [ ] ✅ Read PLANNING.md for architecture context  
@@ -311,7 +288,7 @@ Before coding, verify:
 
 ---
 
-*Document Version: 3.0*  
-*Last Updated: Current*  
-*Aligned with: PRD.md v1.0, PLANNING.md v1.0, TASKS.md v2.0*  
-*Status: Essential Development Guide for Claude 4* 
+Document version: 4.0  
+Last updated: Current  
+Aligned with: PRD.md v1.0, PLANNING.md (Architectural Decisions), TASKS.md latest  
+Status: Essential Development Guide

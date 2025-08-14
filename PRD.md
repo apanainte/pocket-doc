@@ -1,165 +1,227 @@
-# Pocket Doc - Product Requirements Document (PRD)
+# Product Requirements Document (PRD) — iOS-first Document Scanner & Organizer
 
-## Document Responsibilities
-
-| Document | Purpose | Updates |
-|----------|---------|---------|
-| **PRD.md** | 📋 **Product requirements + Business goals** | 📌 **Static reference** |
-| **PLANNING.md** | 🗺️ Strategic architecture + Planning | 📌 Static reference |
-| **CLAUDE.md** | 📘 Development guidance + Technical specs | 📌 Static reference |
-| **TASKS.md** | ✅ Current status + Active tasks | 🔄 Updated regularly |
-
-**This document (PRD.md)** contains product requirements, business objectives, feature specifications, and success metrics. Reference this for "what we're building and why."
-
-## Overview
-Pocket Doc is a privacy-first, cross-platform mobile application designed for secure document management, storage, and retrieval. The app prioritizes user privacy while providing essential document handling capabilities in a simple, intuitive interface.
-
-## Business Goals
-- **Primary Goal**: Create a minimal viable product (MVP) for secure, private document storage and management
-- **Target Market**: Privacy-conscious users who need quick access to personal documents on mobile devices
-- **Platform Priority**: iOS first, with Android support planned in architecture
-- **Success Metrics**: User adoption, document upload frequency, search usage, retention rate
-
-## Core Value Proposition
-- **Privacy First**: No cloud sync, all data stored locally on device
-- **Simplicity**: Clean, intuitive interface focused on core document tasks
-- **Security**: Passcode and biometric authentication
-- **Accessibility**: Quick search and categorization for easy document retrieval
-
-## Target Users
-- **Primary**: Individuals who frequently handle documents on mobile devices
-- **Secondary**: Users concerned about document privacy and data security
-- **Use Cases**: Storing receipts, contracts, IDs, medical documents, notes, photos of important documents
-
-## App Architecture
-**3-Screen Design:**
-1. **Library (Home Screen)** - Document grid with search and single-level categories
-2. **Upload Screen** - Multiple upload options (camera, gallery, scan, files)
-3. **Settings Screen** - App configuration and security settings
-
-## Functional Requirements
-
-### Core Features (MVP)
-1. **Document Upload & Capture**
-   - Take Photo (camera access)
-   - Upload Image (photo library access)
-   - Scan Document (camera with document detection and edge detection)
-   - Upload PDF (file system access for PDFs)
-
-2. **Simple Text Extraction** (FIXED - No Fake Content)
-   - **Single OCR engine** (MLKit only - no complex fallback systems)
-   - **Honest failure handling** - clear error messages when OCR fails
-   - **Manual entry option** - users can input text when extraction fails
-   - Store extracted text for search functionality
-   - **No fake text generation** - only real extracted text or manual entry
-
-3. **Document Management**
-   - Grid-based document display on Library screen
-   - Single-level manual categorization
-   - Edit document titles and descriptions
-   - View documents in full-screen mode
-   - Document thumbnails for quick recognition
-
-4. **Search Functionality**
-   - Search bar at top of Library screen
-   - Keyword-based search through extracted text
-   - Search by title and descriptions
-   - Real-time search results filtering
-
-5. **Security & Authentication**
-   - Passcode authentication (4-6 digit PIN)
-   - Biometric authentication (Touch ID/Face ID/Fingerprint)
-   - App lock on background/foreground transitions
-
-6. **User Interface**
-   - 3-screen navigation (Library, Upload, Settings)
-   - Bottom tab bar navigation
-   - Grid layout for document display
-   - Dark mode support
-   - Clean, minimal design focused on document thumbnails
-
-### Navigation & User Flow
-- **Library Screen**: Primary screen with search bar, document grid, bottom navigation
-- **Upload Flow**: Tap '+' → Select upload method → Process document → Return to Library
-- **Settings Access**: Bottom tab navigation to configuration screen
-- **Document View**: Tap document thumbnail → Full-screen view with edit options
-- **Platform**: iOS (primary), Android (secondary)
-- **Storage**: Local device storage only
-- **Performance**: Smooth scrolling, fast search results (<2 seconds)
-- **Compatibility**: iOS 14+, Android API 26+
-- **File Support**: JPEG, PNG, PDF, basic document formats
-
-## Non-Functional Requirements
-
-### Privacy & Security
-- No data transmission to external servers
-- All processing done on-device
-- Encrypted local storage
-- No analytics or tracking
-- No account creation or email required
-
-### Performance
-- App launch time: <3 seconds
-- Document upload processing: <10 seconds per document
-- Search results: <2 seconds
-- Smooth 60fps UI animations
-
-### Data Persistence & Reliability (MVP)
-- **User Data Protection**: User documents must survive app updates with 95%+ reliability
-- **Transparent Updates**: Database changes occur seamlessly without user intervention
-- **Recovery Options**: Simple manual export/import for edge cases where automatic recovery fails
-- **Minimal Performance Impact**: Data reliability improvements must not affect app startup time
-- **Progressive Degradation**: App remains functional even if some data recovery features fail
-- **User Communication**: Clear feedback when data issues occur, with actionable recovery steps
-
-### Usability
-- **Maximum 2 taps** to reach any core function (simplified from 3-screen design)
-- **Single-level categorization** for simplicity
-- **Grid-based browsing** with visual document thumbnails
-- Intuitive navigation without tutorials
-- Consistent with platform design guidelines
-- Accessibility compliance (VoiceOver, large text support)
-
-## **Explicitly Out of Scope** (No Feature Creep)
-- ❌ Cloud synchronization
-- ❌ Email authentication
-- ❌ **Dual OCR engines with fallback mechanisms** (over-engineering)
-- ❌ **VisionKit integration** (incompatible with Expo)
-- ❌ **Fake text generation when OCR fails** (user trust issue)
-- ❌ **Complex OCR preprocessing and analysis** (unnecessary complexity)
-- ❌ Document editing capabilities
-- ❌ Sharing documents externally
-- ❌ Advanced backup/restore functionality
-- ❌ Multiple user accounts
-- ❌ Advanced categorization (auto-tagging)
-- ❌ Document version control
-- ❌ Integration with other apps
-
-## Success Criteria
-- **Functional**: All core features working reliably
-- **Performance**: Meets specified performance benchmarks
-- **Security**: Passes basic security audit
-- **Usability**: Users can complete core tasks without assistance
-- **Stability**: <1% crash rate
-
-## Assumptions & Constraints
-- Users have devices with camera capabilities
-- Sufficient device storage available
-- Users comfortable with basic mobile app interactions
-- OCR accuracy dependent on document quality
-- Limited by device processing capabilities
-
-## Risk Assessment
-- **Low Risk**: Basic UI/UX implementation
-- **Medium Risk**: OCR integration and accuracy
-- **High Risk**: Cross-platform compatibility, security implementation
-
-## Timeline Considerations
-- MVP development: Focus on iOS first
-- Feature completeness over platform coverage initially
-- Iterative improvement based on user feedback
+**Tech target:** React Native (Expo Managed), EAS Build  
+**Core:**
+- Progressive on-device OCR (English)  
+- Local AES-256-GCM encryption (files + sensitive metadata)  
+- Center “+” tab (Scan / Import Photos / Import PDF)  
+- Single category per doc; starter templates; attribute chips  
+- Export original or compiled PDF (smart default)  
 
 ---
-*Document Version: 1.0*  
-*Last Updated: July 2025*  
-*Status: Draft - Pending Review*
+
+## 1) Scope
+
+### In
+- iOS (iPhone) launch; English UI
+- Capture (multi-page), import Photos/PDF
+- Progressive OCR (background)
+- Categories (single), attributes (predefined; auto-filled + editable)
+- Search across OCR index (progressive)
+- Export: compiled PDF (scan) or original (import)
+- App Lock (biometric default; 3-min auto-lock)
+- Logs (sanitized) shareable
+
+### Out (MVP)
+- Cloud sync/backups
+- Tags / advanced filters
+- Multi-language OCR
+- Full DB encryption (Phase 2)
+
+---
+
+## 2) Navigation & IA
+
+- Tabs: **Home | + | Documents | Settings**  
+- “+” opens sheet: **Scan**, **Import from Photos**, **Import PDF**  
+- Key screens: Home, Documents, Document Detail, Capture → Review, Settings
+
+---
+
+## 3) Functional Requirements
+
+### 3.1 Capture & Review
+- **Camera (Scan):** Big shutter; strip with **Auto** (edge detect ON), **Filter** (remembers; default **B/W**); Perspective fix ON
+- **Review:** **Reorder · Crop/Rotate · Filter · Save**
+- **Image import:** Multi-select; auto-compress if >10MB (≈85% JPEG, long edge ≤3000px)
+- **PDF import:** Native picker; limit **≤50MB OR ≤50 pages**  
+  If exceeded → “Import first 50 pages” or Cancel
+
+### 3.2 Progressive OCR
+- Starts after Save/Import; page-by-page; **concurrency = 1**
+- UI:
+  - Card pill: `OCR 3/12` (neutral, tiny)
+  - Detail: per-page spinner/✓; top “Indexing…”
+  - Microcopy: **“You can search while we finish indexing.”**
+  - Quiet completion toast (rate-limited)
+
+### 3.3 Organization
+- Single category per doc  
+- Starter templates: **ID, Receipt, Invoice, Contract, Certificate, Other**
+- New category: show up to **6–8 attribute chips**; “See all attributes” reveals more
+- Attributes: auto-filled from OCR + confidence; inline edit; only chosen fields shown
+
+### 3.4 Search
+- Full-text over OCR index (progressive results OK)
+- Toggle: **All documents / This category**
+- Recent searches (max 3)
+- If 0 results & OCR running → helper: “Indexing <x> pages… try again soon.”
+
+### 3.5 Edit & Export
+- Rotate pages, basic annotation (highlight/draw), rename, favorite
+- **Export default:**
+  - Scan session → **Compiled PDF**
+  - Imported PDF/single photo → **Original**
+- When relevant, sheet: **Export compiled PDF** / **Export original file** (remembers last)
+
+### 3.6 Security
+- App Lock: biometric default; passcode fallback; **auto-lock after 3 min**
+- Soft haptics on unlock success/failure
+- **Encryption at rest:** AES-256-GCM for **originals/compiled PDFs** and **sensitive metadata** (attributes, titles if desired)
+- Master key derived via **Argon2/PBKDF2**, wrapped in **Secure Enclave/Keychain** via Expo SecureStore
+- OCR index (FTS) unencrypted in MVP but sandboxed; Phase 2 → SQLCipher
+
+### 3.7 Performance & UX polish
+- Thumbnails generated first to show doc fast (target ≤3s for large PDFs)
+- Lists use skeleton rows; thumbnails lazy-load with crossfade
+- OCR deprioritized while scrolling
+
+---
+
+## 4) Non-Functional
+
+- iOS 15+  
+- PDF limit: ≤50MB or ≤50 pages (offer partial import)  
+- OCR concurrency: 1  
+- Touch targets ≥44×44pt; text ≥13–14pt  
+- Contrast ≥4.5:1; dark mode (avoid pure black)
+
+---
+
+## 5) Data Model (SQLite)
+
+**documents**  
+`id, title, category_id, created_at, updated_at, type(image|pdf), page_count, file_uri_encrypted, favorite, size_bytes, status(IMPORTED|OCR_PARTIAL|OCR_DONE)`
+
+**pages**  
+`id, document_id, index, thumb_uri, status(PENDING|PROCESSING|DONE|FAILED), ocr_lang, text_encrypted?`
+
+**fts_pages** (FTS5)  
+`page_id, content`  *(MVP unencrypted; app sandbox + App Lock)*
+
+**categories**  
+`id, name, created_at`
+
+**attributes**  
+`id, document_id, attribute_key, value, confidence`
+
+**attribute_definitions**  
+`key, label, type(string|date|number), pattern, example`
+
+**ocr_jobs**  
+`id, document_id, page_id, state, attempts, last_error`
+
+> Encrypt `file_uri_encrypted` path target files; optionally encrypt `documents.title` & `attributes.value` (store normalized shadow columns for sorting/search if needed).
+
+---
+
+## 6) Libraries & Native Module Plan
+
+### Camera & Scan
+- **Keep:** `react-native-document-scanner-plugin` (edge detection, perspective)  
+- **Keep:** `expo-image-picker` (Photos import)  
+- **Remove:** `expo-camera` if unused
+
+### PDF — **Custom native helper** (Expo config plugin)
+- **Create a tiny module** using **PDFKit (iOS)** and **PdfRenderer (Android)**  
+- Expose two methods:
+
+```ts
+export function renderPageToImage(params: {
+  uri: string;
+  pageIndex: number;
+  targetDPI: number;
+}): Promise<{ imageUri: string; width: number; height: number }>;
+
+export function generateThumbnails(params: {
+  uri: string;
+  indices: number[];
+  targetDPI?: number;
+}): Promise<Array<{ pageIndex: number; thumbUri: string }>>;
+```
+
+- Use cases:
+  - Thumbnails for lists/detail scrubber
+  - Rasterized bitmaps for OCR (ML Kit)
+- **Keep:** `react-native-webview` for PDF viewing
+- **Add:** `pdf-lib` for assembling multi-page scan sessions into compiled PDFs + metadata
+
+### OCR
+- **Keep:** `react-native-mlkit-ocr` (English)  
+  - Lazy-load model on first OCR job  
+  - Feed with images from raster helper
+
+### Database (FTS)
+- **Keep:** `expo-sqlite` with **FTS5** + LIKE fallback
+
+### Encryption & Keys
+- **Add:** `react-native-aes-crypto` (AES-256-GCM) for file encryption  
+- **Keep:** `expo-secure-store` for wrapping master key (Keychain/Secure Enclave)  
+- MVP: FTS unencrypted; Phase 2 → SQLCipher for full DB encryption
+
+### File System
+- **Keep both:** `react-native-fs` & `expo-file-system`  
+- **Add abstraction:** `StorageService` for all FS operations
+
+---
+
+## 7) Background OCR Pipeline
+
+- Queue in SQLite (`ocr_jobs`), FIFO, concurrency 1  
+- States: `PENDING → PROCESSING → DONE/FAILED` (3 retries, backoff)  
+- Pause on low battery (<20%) and resume on foreground/charging  
+- Delete temp rasters after each page finishes
+
+---
+
+## 8) Settings (lean)
+
+- **Security:** App Lock, Auto-lock time, Change Passcode  
+- **Capture:** Default filter, Remember last used, Image compression toggle  
+- **Support:** Share Logs (sanitized), Contact  
+- **About:** Version, Licenses
+
+---
+
+## 9) Acceptance Criteria
+
+- Import large PDF (~35MB/≤40 pages): Thumbnails visible ≤3s; OCR pill starts (`OCR x/y`)  
+- Search during OCR: partial hits OK; helper message when empty; improves over time  
+- Export: correct default (compiled vs original); sheet shows only relevant options; remembers last choice  
+- Security: originals + compiled PDFs encrypted at rest; biometric App Lock; auto-lock 3 min; haptics on unlock  
+- UI: hit targets ≥44×44pt; text ≥13–14pt; contrast ≥4.5:1; dark mode compliant  
+- Stability: OCR never blocks UI; smooth scrolling
+
+---
+
+## 10) Implementation Notes
+
+- **Expo config plugin**: required for native PDF raster helper  
+- **Import flow for PDF:**
+  1) Save original (encrypt)
+  2) Generate thumbnails (first)
+  3) Enqueue OCR jobs using raster helper
+  4) Update FTS as pages complete
+- **Scan session flow:**
+  1) Save compiled PDF via `pdf-lib` (encrypt)
+  2) Generate thumbnails from compiled PDF
+  3) OCR as above
+- **Metadata encryption:** encrypt before DB insert; keep normalized shadow columns if sorting/search needed
+- **Logs:** JSON, no OCR text or file paths; share via native sheet
+
+---
+
+## 11) Phase 2 (Later)
+- SQLCipher + FTS5 for encrypted OCR index  
+- iPad/Android support, more OCR languages  
+- Native PDF viewer (`react-native-pdf`) for advanced features
