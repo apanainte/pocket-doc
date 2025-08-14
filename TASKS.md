@@ -87,3 +87,78 @@ This living tracker aligns with `PRD.md`, `PLANNING.md` (Architectural Decisions
 - [ ] Export: defaults + remember last selection
 - [ ] App Lock: 3‑min auto‑lock + haptics
 - [ ] Logging: sanitized JSON logs; share action in Settings
+
+---
+
+## Recommended execution order + checkpoints
+
+### Phase 0 — Baseline stabilization
+- [ ] Ensure app boots; run all tests; record baseline
+- Checkpoint:
+  - Run: `npm run dev` (app), then `cd tests && python run_tests.py`
+
+### Phase 1 — Database schema to PRD
+- [ ] Add tables: `pages`, `fts_pages`, `ocr_jobs`, `attributes`, `attribute_definitions`
+- [ ] Extend `documents` with PRD fields; keep compatibility accessors
+- [ ] Keep current search temporarily (do not switch to `fts_pages` yet)
+- Checkpoint:
+  - Unit: DB migrations and presence of tables/indexes → `python run_tests.py --unit`
+  - Integration: read/write new tables → `python run_tests.py --integration`
+
+### Phase 2 — StorageService + encryption
+- [ ] Implement directories `originals/`, `compiled/`, `thumbs/`, `temp/`
+- [ ] AES‑256‑GCM for originals/compiled; Argon2/PBKDF2 key derivation; wrap in SecureStore
+- [ ] Refactor file writes to go through `StorageService`
+- Checkpoint:
+  - Unit: encrypt/decrypt round‑trip → `python run_tests.py --unit`
+  - Integration: import→store→decryptToTemp() → `python run_tests.py --integration`
+
+### Phase 3 — PDF raster helper + thumbnails + assembly
+- [ ] Expo config plugin (iOS) using PDFKit: `renderPageToImage`, `generateThumbnails`
+- [ ] `pdf-lib` to assemble scan sessions to compiled PDFs
+- [ ] Thumbnails first: skeletons then crossfade; first thumb ≤3s
+- Checkpoint:
+  - Integration: large PDF first thumbnail ≤3s → `python run_tests.py --integration`
+  - E2E: `tests/e2e/test_use_case_1_upload.py` → `python run_tests.py --e2e`
+
+### Phase 4 — OCR queue (ML Kit only)
+- [ ] Remove fallback; MLKit English only; lazy model load
+- [ ] Single‑worker FIFO, retries/backoff; pause <20% battery; resume on charge/foreground
+- [ ] Per page: raster→OCR→`fts_pages`; delete rasters; UI signals (pill/spinners/toast)
+- Checkpoint:
+  - Unit: worker logic/state transitions → `python run_tests.py --unit`
+  - Integration: enqueue→progressive updates→cleanup → `python run_tests.py --integration`
+  - E2E: `tests/e2e/test_use_case_3_search.py` → `python run_tests.py --e2e`
+
+### Phase 5 — Search over `fts_pages`
+- [ ] Switch search to page‑level FTS with LIKE fallback; scope toggle; recent searches
+- Checkpoint:
+  - Integration: partial results during OCR → `python run_tests.py --integration`
+  - E2E: search workflow → `python run_tests.py --e2e`
+
+### Phase 6 — Navigation: center “+” sheet
+- [ ] Replace `Upload` tab with centered “+” action sheet; wire Scan/Import
+- Checkpoint:
+  - E2E: navigation + action sheet reachable → `python run_tests.py --e2e`
+
+### Phase 7 — Export defaults + memory
+- [ ] Defaults per type; choice sheet when both applicable; remember last
+- Checkpoint:
+  - Integration: export behavior per type → `python run_tests.py --integration`
+  - E2E: export flow → `python run_tests.py --e2e`
+
+### Phase 8 — App Lock + haptics
+- [ ] Auto‑lock after 3 min; biometric default; passcode fallback; haptics
+- Checkpoint:
+  - Unit: inactivity timer; lock/unlock → `python run_tests.py --unit`
+  - E2E: lock flow → `python run_tests.py --e2e`
+
+### Phase 9 — Logging & privacy
+- [ ] Sanitized JSON logs; share from Settings
+- Checkpoint:
+  - Integration: log redaction & share file → `python run_tests.py --integration`
+
+### Phase 10 — UX performance & a11y
+- [ ] Deprioritize OCR while scrolling; 60 FPS; skeletons; a11y labels; contrast; touch sizes
+- Checkpoint:
+  - E2E: smoke across flows and performance timings → `python run_tests.py --e2e`

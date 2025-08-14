@@ -62,16 +62,43 @@ class MobileTestBase:
         self.platform = None
         
     def setup_ios_driver(self):
-        """Set up iOS driver for simulator testing"""
+        """Set up iOS driver. Uses real device if IOS_UDID is provided; otherwise targets simulator."""
         options = XCUITestOptions()
         options.platform_name = "iOS"
-        options.platform_version = "17.5"  # Adjust based on your simulator
-        options.device_name = "iPhone 15"  # Adjust based on your simulator
-        options.bundle_id = "host.exp.exponent"  # Expo Go bundle ID
         options.automation_name = "XCUITest"
         options.new_command_timeout = 300
         options.no_reset = True
-        
+
+        # App under test (already installed via Xcode/Expo)
+        options.bundle_id = "com.pocketdoc.app"
+
+        ios_udid = os.environ.get('IOS_UDID')
+        if ios_udid:
+            # Real device config
+            options.udid = ios_udid
+            # Optional: provide org/team for WDA auto-signing if needed
+            xcode_org_id = os.environ.get('XCODE_ORG_ID')
+            xcode_signing_id = os.environ.get('XCODE_SIGNING_ID', 'iPhone Developer')
+            if xcode_org_id:
+                options.set_capability('xcodeOrgId', xcode_org_id)
+                options.set_capability('xcodeSigningId', xcode_signing_id)
+            # Unique WDA bundle id for your team (must be trusted on device)
+            wda_bundle_id = os.environ.get('WDA_BUNDLE_ID', 'com.pocketdoc.WebDriverAgentRunner')
+            options.set_capability('updatedWDABundleId', wda_bundle_id)
+            # Improve visibility and stability
+            options.set_capability('showXcodeLog', True)
+            options.set_capability('waitForQuiescence', False)
+            # Improve WDA stability on device
+            options.set_capability('usePrebuiltWDA', False)
+            options.set_capability('wdaLaunchTimeout', 120000)
+            options.set_capability('wdaConnectionTimeout', 120000)
+            options.set_capability('allowProvisioningUpdates', True)
+            options.set_capability('shouldUseSingletonTestManager', True)
+        else:
+            # Simulator fallback
+            options.platform_version = os.environ.get('IOS_SIM_VERSION', '18.5')
+            options.device_name = os.environ.get('IOS_SIM_DEVICE', 'iPhone 16 Pro')
+
         # Connect to Appium server
         self.driver = webdriver.Remote('http://localhost:4723', options=options)
         self.platform = "iOS"

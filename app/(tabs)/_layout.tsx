@@ -10,16 +10,17 @@ export default function TabLayout() {
   const { theme, spacing, borderRadius } = useTheme();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const bypassAuth = process.env.EXPO_PUBLIC_E2E_BYPASS_AUTH === '1';
 
   const checkAuthStatus = useCallback(async () => {
     try {
-      // For testing, always require authentication
-      // const token = await SecureStore.getItemAsync('auth_token');
-      // setIsAuthenticated(!!token);
-      
-      // Force authentication screen for now
-      setIsAuthenticated(false);
-      console.log('Authentication required');
+      if (bypassAuth) {
+        setIsAuthenticated(true);
+        return;
+      }
+
+      const token = await SecureStore.getItemAsync('auth_token');
+      setIsAuthenticated(!!token);
     } catch (error) {
       console.error('Error checking auth status:', error);
       setIsAuthenticated(false);
@@ -40,7 +41,7 @@ export default function TabLayout() {
     return null; // Or a loading spinner
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated && !bypassAuth) {
     return <SimpleAuthScreen onAuthenticated={handleAuthenticated} />;
   }
 

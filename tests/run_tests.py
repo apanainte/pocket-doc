@@ -49,10 +49,10 @@ class MobileTestRunner:
         self.screenshot_dir.mkdir(exist_ok=True)
         
         self.test_suites = {
-            'use_case_1': 'test_use_case_1_upload.py',
-            'use_case_2': 'test_use_case_2_metadata.py',
-            'use_case_3': 'test_use_case_3_search.py',
-            'integration': 'test_integration.py'
+            'use_case_1': 'e2e/test_use_case_1_upload.py',
+            'use_case_2': 'e2e/test_use_case_2_metadata.py',
+            'use_case_3': 'e2e/test_use_case_3_search.py',
+            'integration': 'integration/test_integration.py'
         }
         
         self.requirements_checked = False
@@ -263,8 +263,13 @@ class MobileTestRunner:
         report_file = self.report_dir / f"{suite_name}_{timestamp}"
         
         if args.report_format == 'html':
-            cmd.extend(['--html', f"{report_file}.html", '--self-contained-html'])
-        elif args.report_format == 'json':
+            # Fallback if pytest-html is not installed
+            try:
+                import pytest_html  # type: ignore
+                cmd.extend(['--html', f"{report_file}.html", '--self-contained-html'])
+            except Exception:
+                args.report_format = 'json'
+        if args.report_format == 'json':
             cmd.extend(['--json-report', '--json-report-file', f"{report_file}.json"])
         elif args.report_format == 'xml':
             cmd.extend(['--junitxml', f"{report_file}.xml"])

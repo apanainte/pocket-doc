@@ -19,7 +19,7 @@ export class DocumentService {
   private initPromise: Promise<void> | null = null;
   private initializationAttempts = 0;
   private readonly maxRetries = 3;
-  private readonly currentSchemaVersion = 3; // Increment when schema changes
+  private readonly currentSchemaVersion = 4; // Increment when schema changes
   private readonly dbName = 'documents.db';
   private readonly migrationLogs: MigrationLog[] = [];
 
@@ -463,6 +463,106 @@ export class DocumentService {
         success: true
       });
     }
+
+    if (fromVersion < 4) {
+      // Migration from version 3 to 4: Align schema to PRD (pages, fts_pages, ocr_jobs, attributes, attribute_definitions)
+      this.logMigration({
+        migrationId,
+        fromVersion: Math.max(fromVersion, 3),
+        toVersion: 4,
+        step: 'Creating PRD tables: pages, fts_pages, ocr_jobs, attributes, attribute_definitions',
+        success: true
+      });
+
+      // Create pages table (use page_index instead of reserved keyword 'index')
+      await this.db.execAsync(`
+        CREATE TABLE IF NOT EXISTS pages (
+          id TEXT PRIMARY KEY,
+          document_id TEXT NOT NULL,
+          page_index INTEGER NOT NULL,
+          thumb_uri TEXT,
+          status TEXT NOT NULL CHECK (status IN ('PENDING','PROCESSING','DONE','FAILED')),
+          ocr_lang TEXT,
+          text_encrypted BLOB,
+          FOREIGN KEY(document_id) REFERENCES documents(id)
+        );
+      `);
+
+      // Create attributes tables
+      await this.db.execAsync(`
+        CREATE TABLE IF NOT EXISTS attribute_definitions (
+          key TEXT PRIMARY KEY,
+          label TEXT NOT NULL,
+          type TEXT NOT NULL CHECK (type IN ('string','date','number')),
+          pattern TEXT,
+          example TEXT
+        );
+      `);
+
+      await this.db.execAsync(`
+        CREATE TABLE IF NOT EXISTS attributes (
+          id TEXT PRIMARY KEY,
+          document_id TEXT NOT NULL,
+          attribute_key TEXT NOT NULL,
+          value TEXT,
+          confidence REAL,
+          FOREIGN KEY(document_id) REFERENCES documents(id),
+          FOREIGN KEY(attribute_key) REFERENCES attribute_definitions(key)
+        );
+      `);
+
+      // Create OCR jobs table
+      await this.db.execAsync(`
+        CREATE TABLE IF NOT EXISTS ocr_jobs (
+          id TEXT PRIMARY KEY,
+          document_id TEXT NOT NULL,
+          page_id TEXT,
+          state TEXT NOT NULL,
+          attempts INTEGER DEFAULT 0,
+          last_error TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          FOREIGN KEY(document_id) REFERENCES documents(id),
+          FOREIGN KEY(page_id) REFERENCES pages(id)
+        );
+      `);
+
+      // Extend documents with PRD fields if missing
+      const documentsInfo = await this.db.getAllAsync("PRAGMA table_info(documents)");
+      const docCols = documentsInfo.map((c: any) => c.name);
+      const addCol = async (name: string, type: string) => {
+        if (!docCols.includes(name)) {
+          await this.db.execAsync(`ALTER TABLE documents ADD COLUMN ${name} ${type}`);
+        }
+      };
+      await addCol('pageCount', 'INTEGER');
+      await addCol('favorite', 'INTEGER');
+      await addCol('sizeBytes', 'INTEGER');
+      await addCol('status', "TEXT");
+      await addCol('file_uri_encrypted', 'TEXT');
+
+      // Create fts_pages virtual table
+      await this.db.execAsync(`
+        CREATE VIRTUAL TABLE IF NOT EXISTS fts_pages USING fts5(
+          page_id, content
+        );
+      `);
+
+      // Helpful indexes
+      await this.db.execAsync(`
+        CREATE INDEX IF NOT EXISTS idx_pages_document ON pages(document_id);
+        CREATE INDEX IF NOT EXISTS idx_attributes_document ON attributes(document_id);
+        CREATE INDEX IF NOT EXISTS idx_ocr_jobs_state ON ocr_jobs(state);
+      `);
+
+      this.logMigration({
+        migrationId,
+        fromVersion: Math.max(fromVersion, 3),
+        toVersion: 4,
+        step: 'PRD tables created and documents extended',
+        success: true
+      });
+    }
   }
 
   // Verify that a table exists in the database
@@ -504,9 +604,8 @@ export class DocumentService {
 
       // Validate required tables exist
       const requiredTables = ['documents'];
-      if (toVersion >= 3) {
-        requiredTables.push('categories');
-      }
+      if (toVersion >= 3) requiredTables.push('categories');
+      if (toVersion >= 4) requiredTables.push('pages', 'fts_pages', 'ocr_jobs', 'attributes', 'attribute_definitions');
 
       for (const tableName of requiredTables) {
         const tableExists = await this.verifyTableExists(tableName);
@@ -534,6 +633,9 @@ export class DocumentService {
       if (toVersion >= 3) {
         requiredDocumentColumns.push('categoryId');
       }
+      if (toVersion >= 4) {
+        requiredDocumentColumns.push('pageCount', 'favorite', 'sizeBytes', 'status', 'file_uri_encrypted');
+      }
 
       for (const columnName of requiredDocumentColumns) {
         if (!documentColumns.includes(columnName)) {
@@ -551,6 +653,30 @@ export class DocumentService {
 
       // If categories table should exist, validate its structure
       if (toVersion >= 3) {
+      // If PRD tables should exist, validate minimal structure
+      if (toVersion >= 4) {
+        const pagesInfo = await this.db.getAllAsync("PRAGMA table_info(pages)");
+        const pagesCols = pagesInfo.map((c: any) => c.name);
+        for (const name of ['id','document_id','page_index','status']) {
+          if (!pagesCols.includes(name)) throw new Error(`Required column ${name} missing from pages table`);
+        }
+
+        const attrsInfo = await this.db.getAllAsync("PRAGMA table_info(attributes)");
+        const attrsCols = attrsInfo.map((c: any) => c.name);
+        for (const name of ['id','document_id','attribute_key','value']) {
+          if (!attrsCols.includes(name)) throw new Error(`Required column ${name} missing from attributes table`);
+        }
+
+        const jobsInfo = await this.db.getAllAsync("PRAGMA table_info(ocr_jobs)");
+        const jobsCols = jobsInfo.map((c: any) => c.name);
+        for (const name of ['id','document_id','state','attempts','created_at','updated_at']) {
+          if (!jobsCols.includes(name)) throw new Error(`Required column ${name} missing from ocr_jobs table`);
+        }
+
+        // Validate fts_pages exists
+        const ftsPagesExists = await this.verifyTableExists('fts_pages');
+        if (!ftsPagesExists) throw new Error('fts_pages virtual table missing');
+      }
         const categoriesTableInfo = await this.db.getAllAsync("PRAGMA table_info(categories)");
         const categoryColumns = categoriesTableInfo.map((col: any) => col.name);
         const requiredCategoryColumns = ['id', 'name', 'color', 'icon', 'createdAt', 'updatedAt'];
