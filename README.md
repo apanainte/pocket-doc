@@ -1,287 +1,77 @@
-# 📱 PocketDoc - Intelligent Document Manager
+# PocketDoc — private document manager for iPhone
 
-An AI-powered mobile document management app built with React Native that allows users to scan, organize, and search their documents using advanced OCR and metadata generation.
+![PocketDoc: scan, read and search your documents, 100% on-device](docs/pocketdoc-banner.png)
 
-## 🚀 Features
+Scan, read and find your personal documents — receipts, invoices, contracts, boarding passes — without them ever leaving your phone.
 
-- **Professional Document Scanning** - High-quality document capture with edge detection and perspective correction
-- **AI-Powered OCR** - Extract text from documents using MLKit OCR
-- **Smart Metadata Generation** - Automatically generate descriptions and tags for documents
-- **Intelligent Search** - Search documents by content, tags, or metadata
-- **Expandable Text Display** - Show more/less functionality for long text content
-- **Dark Mode UI** - Consistent dark theme across all screens
-- **Secure Storage** - Encrypted local storage for sensitive documents
+**Personal project** · React Native 0.79 / Expo 53 · TypeScript · iOS first · MVP tested via TestFlight
 
-## 🛠️ Prerequisites
+## What it does
 
-Before you begin, ensure you have the following installed:
+- **Capture** — four ways in: document scan with edge detection and perspective correction, camera photo, photo library, or file/PDF import.
+- **Read** — on-device OCR with Google ML Kit. If recognition fails, the app says so; it never invents text.
+- **Organise** — categories (Receipts, Invoices, Personal, Taxes, Travel) plus your own title, description and tags.
+- **Find** — full-text search across titles, tags, descriptions and extracted text (SQLite FTS5).
+- **Protect** — biometric or passcode app lock; credentials kept in the iOS Keychain.
 
-### Required Software
+## Architecture
 
-- **Node.js** (v18 or higher) - [Download here](https://nodejs.org/)
-- **npm** or **yarn** - Package manager
-- **React Native CLI** - `npm install -g react-native-cli`
-- **Expo CLI** - `npm install -g @expo/cli`
+```mermaid
+flowchart LR
+    S[Document scan<br/>edge detection + perspective fix] --> I[Captured image or PDF]
+    P[Camera / Photos / Files] --> I
+    I --> E[(App sandbox<br/>files)]
+    I --> C[ML Kit OCR<br/>on-device]
+    C --> D[(SQLite + FTS5<br/>metadata and text)]
+    D --> F[Library and search]
+    G[Biometric / passcode lock] --> F
+```
 
-### iOS Development (macOS only)
+No backend, no analytics, no network calls: everything runs and is stored on the device.
 
-- **Xcode** (v14 or higher) - [Download from Mac App Store](https://apps.apple.com/us/app/xcode/id497799835)
-- **iOS Simulator** - Included with Xcode
-- **CocoaPods** - `sudo gem install cocoapods`
+## Design decisions
 
-### Android Development (Optional)
+1. **Privacy first — nothing leaves the phone.** The main branch has no backend and makes no network calls. Files live in the app sandbox; metadata and OCR text live in a local SQLite database.
+2. **Honest OCR.** An early version filled in placeholder text when recognition failed. That was removed: a failed scan is shown as a failure. Trust matters more than a demo that always "works".
+3. **Cloud AI kept on a separate branch.** The `cloud-processing` branch experiments with an LLM (gpt-4o-mini) that writes descriptions and tags from the OCR text. It is not merged into `main` because it would send document content off the device, breaking decision 1. Options for bringing it back: opt-in per document, or an on-device model.
 
-- **Android Studio** - [Download here](https://developer.android.com/studio)
-- **Android SDK** - Install via Android Studio
-- **Java JDK** (v11 or higher)
+## How it was built
 
-## 📦 Installation
+Built with AI coding agents in a spec-driven workflow: prototyped in Bolt, then developed with Claude Code. Four documents in the repo steer the agent:
 
-### 1. Clone the Repository
+| File | Role |
+|---|---|
+| [`PRD.md`](PRD.md) | What to build: requirements, scope, success criteria |
+| [`PLANNING.md`](PLANNING.md) | How to build it: architecture and technology choices |
+| [`TASKS.md`](TASKS.md) | Where the work stands: status and priorities |
+| [`CLAUDE.md`](CLAUDE.md) | Rules the agent follows in every session, including the order in which to read the three files above |
+
+## Status and known limitations
+
+- MVP distributed to testers through TestFlight (summer 2025); not yet on the public App Store.
+- A refresh is planned for late 2026.
+- Documents rely on iOS's built-in data protection; the app does not add its own encryption layer yet.
+- iOS first. Android is configured but not a focus yet.
+- `services/passkeyAuth.ts` is an unused prototype for passkey sign-in.
+
+## Run it locally
+
+Requirements: macOS with Xcode and CocoaPods, Node.js 18+, an iPhone (recommended) or the iOS Simulator.
 
 ```bash
 git clone https://github.com/apanainte/pocket-doc.git
 cd pocket-doc
-```
-
-### 2. Install Dependencies
-
-```bash
-# Install npm dependencies
 npm install
-
-# Install iOS dependencies (macOS only)
 cd ios && pod install && cd ..
-```
-
-### 3. Environment Setup
-
-Create a `.env` file in the root directory (if needed):
-
-```bash
-# Add any environment variables here
-# API_BASE_URL=https://your-api-url.com
-```
-
-## 🏃‍♂️ Running the App
-
-### iOS (Physical Device - Recommended)
-
-1. **Connect your iPhone** via USB
-2. **Enable Developer Mode** on your iPhone:
-   - Settings → Privacy & Security → Developer Mode → Enable
-3. **Trust your Mac** if prompted
-4. **Run the app**:
-
-```bash
-# Start Metro bundler
-npm start
-
-# In another terminal, run on device
 npx expo run:ios --device
 ```
 
-### iOS (Simulator)
+Scanning and OCR use native modules, so they need a development build rather than Expo Go. More detail in [`docs/INSTALLATION_GUIDE.md`](docs/INSTALLATION_GUIDE.md).
 
-```bash
-# Start Metro bundler
-npm start
+## Tech stack
 
-# In another terminal, run on simulator
-npm run ios
-# or
-npx expo run:ios --simulator
-```
+React Native 0.79 · Expo 53 · Expo Router · TypeScript · expo-sqlite (FTS5) · react-native-mlkit-ocr · react-native-document-scanner-plugin · expo-local-authentication · expo-secure-store
 
-### Android
+## Author
 
-```bash
-# Start Metro bundler
-npm start
-
-# In another terminal, run on device/emulator
-npm run android
-# or
-npx expo run:android
-```
-
-## 📁 Project Structure
-
-```
-pocket-doc/
-├── app/                    # App screens and navigation
-│   ├── (tabs)/            # Tab-based navigation screens
-│   └── _layout.tsx        # Root layout component
-├── components/             # Reusable UI components
-│   ├── ui/                # UI component library
-│   │   ├── ExpandableText.tsx
-│   │   ├── RevolutButton.tsx
-│   │   └── ...
-│   ├── DocumentCard.tsx
-│   └── DocumentDetailModal.tsx
-├── contexts/              # React contexts for state management
-├── hooks/                 # Custom React hooks
-├── services/              # Business logic and API services
-│   ├── native/           # Native module interfaces
-│   ├── ocrService.ts     # OCR functionality
-│   ├── database.ts       # Local database operations
-│   └── ...
-├── themes/               # App theming and styling
-├── types/                # TypeScript type definitions
-├── tests/                # Test files
-└── docs/                 # Documentation
-```
-
-## 🔧 Development
-
-### Available Scripts
-
-```bash
-# Start development server
-npm start
-
-# Run on iOS device
-npm run ios
-
-# Run on Android
-npm run android
-
-# Run tests
-npm test
-
-# Type checking
-npm run type-check
-
-# Linting
-npm run lint
-```
-
-### Key Components
-
-- **DocumentScannerService** - Professional document scanning with edge detection
-- **OCR Service** - Text extraction using MLKit
-- **ExpandableText** - Smart text truncation with show more/less functionality
-- **Document Management** - CRUD operations for documents
-- **AI Metadata Generation** - Automatic description and tag generation
-
-## 🧪 Testing
-
-### Run Tests
-
-```bash
-# Run all tests
-npm test
-
-# Run specific test suites
-npm run test:unit
-npm run test:integration
-npm run test:e2e
-```
-
-### Test Structure
-
-- `tests/unit/` - Unit tests for components and services
-- `tests/integration/` - Integration tests for workflows
-- `tests/e2e/` - End-to-end tests for user scenarios
-
-## 🚀 Deployment
-
-### iOS App Store
-
-1. **Update version** in `app.json`
-2. **Build for production**:
-   ```bash
-   npx expo build:ios
-   ```
-3. **Submit to App Store** via App Store Connect
-
-### Android Play Store
-
-1. **Update version** in `app.json`
-2. **Build for production**:
-   ```bash
-   npx expo build:android
-   ```
-3. **Submit to Play Store** via Google Play Console
-
-## 🔍 Troubleshooting
-
-### Common Issues
-
-#### Metro bundler port conflict
-```bash
-# Kill process on port 8081
-lsof -ti:8081 | xargs kill -9
-npm start -- --reset-cache
-```
-
-#### iOS build errors
-```bash
-# Clean build cache
-rm -rf ios/build ios/DerivedData
-cd ios && pod install && cd ..
-```
-
-#### Android build errors
-```bash
-# Clean Android build
-cd android && ./gradlew clean && cd ..
-```
-
-#### CocoaPods issues
-```bash
-# Update CocoaPods
-cd ios
-pod repo update
-pod install
-cd ..
-```
-
-### Architecture Issues on M1/M2 Macs
-
-If you encounter architecture errors with simulators:
-
-```bash
-# Use physical device instead of simulator
-npx expo run:ios --device
-
-# Or force arm64 architecture
-sudo arch -arm64 gem install ffi
-cd ios && arch -arm64 pod install && cd ..
-```
-
-## 📱 Device Requirements
-
-### iOS
-- **iOS 14.0+** 
-- **iPhone 8** or newer recommended
-- **Camera permissions** required for document scanning
-
-### Android
-- **Android 8.0 (API 26)+**
-- **Camera permissions** required
-- **Storage permissions** required
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Commit your changes: `git commit -m 'Add amazing feature'`
-4. Push to the branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🆘 Support
-
-For support and questions:
-
-- Create an issue on GitHub
-- Contact the development team
-- Check the troubleshooting section above
-
----
-
-**Happy Coding!** 🎉 
+**Andrei Panainte** — Solutions Architect, AI adoption · [LinkedIn](https://www.linkedin.com/in/andrei-panainte)
