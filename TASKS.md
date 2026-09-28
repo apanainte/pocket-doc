@@ -1,6 +1,6 @@
 # TASKS.md - PocketDoc MVP Status
 
-**Last Updated**: January 2025 - Ready for MVP Launch 🚀
+**Last Updated**: September 2026 - MVP tested via TestFlight; refresh planned for late 2026
 
 ---
 
@@ -12,26 +12,32 @@
 - **Database**: SQLite with migration system ✅
 - **Authentication**: Basic biometric authentication ✅
 - **UI/UX**: Compact, responsive design ✅
+- **Honest OCR**: ML Kit only, failures shown as failures (no fake text) ✅
+- **Categories**: Single-level categories with filter chips in the Library ✅
 
-### 🚨 **MVP BLOCKERS (Critical)**
-- **OCR Trust Issue**: Contains fake text generation - MUST FIX
-- **Categories**: PRD requires single-level categorization
+### 📦 **Distribution**
+- MVP distributed to testers through TestFlight (summer 2025)
+- Not yet on the public App Store
+
+### 🔄 **Next: late-2026 refresh**
+- Scope to be defined (see Post-MVP list below)
+- Housekeeping: remove unused `components/AuthScreen.tsx` and `services/passkeyAuth.ts` prototype
 
 ---
 
 ## MVP Critical Tasks
 
-### 🚨 **Priority 1: Fix OCR Fake Content (1 day)**
-- [ ] Remove fake text generation from OCR service
-- [ ] Show honest "OCR failed" messages instead of fake content
-- [ ] Add manual text entry option when OCR fails
+### ✅ **Priority 1: Fix OCR Fake Content (done)**
+- [x] Remove fake text generation from OCR service
+- [x] Show honest "OCR failed" messages instead of fake content
+- [ ] Add manual text entry option when OCR fails (candidate for the refresh)
 - **Why Critical**: User trust - fake results undermine app credibility
 
-### 📁 **Priority 2: Basic Categories (3 days)**
-- [ ] Implement categories table in database
-- [ ] Add category selection during document upload
-- [ ] Add basic category management in Settings
-- [ ] Display categories in document cards
+### ✅ **Priority 2: Basic Categories (done)**
+- [x] Implement categories table in database
+- [x] Add category selection during document upload
+- [x] Add basic category management in Settings
+- [x] Display categories in document cards
 - **Why Critical**: PRD explicitly requires "single-level manual categorization"
 
 ---
@@ -42,8 +48,8 @@
 - [x] **Search**: Text search functionality ✅
 - [x] **3-Screen Navigation**: Library, Upload, Settings ✅
 - [x] **Basic Security**: Biometric authentication ✅
-- [ ] **Honest OCR**: No fake content generation ❌
-- [ ] **Categories**: Single-level categorization ❌
+- [x] **Honest OCR**: No fake content generation ✅
+- [x] **Categories**: Single-level categorization ✅
 
 ---
 
@@ -56,7 +62,7 @@
 ---
 
 ## Current Status
-- **MVP Progress**: 83% Complete (5/6 core features done)
-- **Estimated to MVP**: 4 days (1 day OCR fix + 3 days categories)
-- **Blockers**: 2 critical items remaining
-- **Ready for**: Beta testing after OCR fix and categories
+- **MVP Progress**: Complete; tested via TestFlight
+- **Next**: refresh planned for late 2026
+- **Blockers**: none for the MVP
+- **Ready for**: refresh planning
